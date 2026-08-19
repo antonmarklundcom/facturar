@@ -23,7 +23,7 @@ Relevant local skills for the build chats: `paraguay-business-apps`, `nodejs-mys
 | 9 | Delivery | WhatsApp-first (wa.me deeplink + token URL) + email |
 | 10 | Email | Resend (separate free team for this project's domain) |
 | 11 | Dark mode | Yes, day one (token-based theming; PDFs always light) |
-| 12 | CI gate | ESLint + typecheck + `next build` + Vitest; unit tests mandatory for money/RUC/IVA/numbering |
+| 12 | Quality gate | **Local only — no GitHub Actions workflow, ever** (budgeted-runner policy). ESLint + typecheck + `next build` + Vitest run via a husky pre-push hook that blocks the push on failure. Unit tests mandatory for money/RUC/IVA/numbering. "Green" means the local gate passed |
 | 13 | Builder model | Opus 5 for all PRs |
 | 14 | Audit | Full `activity_log` + `updated_by`/`updated_at` |
 | 15 | Deploy | Early — right after the foundation phase (PR-6) |
@@ -41,12 +41,15 @@ portal with login, full CRM pipeline, Swedish market profile.
 
 ## Phase A — Foundation (sequential)
 
-### PR-1 Scaffold + CI
+### PR-1 Scaffold + local quality gate
 create-next-app (App Router, TS, Tailwind), drizzle-orm/mysql2/drizzle-kit/tsx, `drizzle.config.ts`,
 `src/db/index.ts` (pool, connectionLimit 8, timezone "Z"), `.env.example` with comments,
-next-intl wired with `es` + `en` catalogs, design tokens (CSS variables, light + dark),
-GitHub Actions workflow: lint + typecheck + build + vitest.
-**Depends:** — · **Accept:** CI green on the PR itself; `npm run dev` renders a placeholder page in es and en.
+next-intl wired with `es` + `en` catalogs, design tokens (CSS variables, light + dark).
+**No `.github/workflows/` file** — if create-next-app generates one, delete it before the first
+commit. Instead: husky `pre-push` running `npm run lint && npm run typecheck && npm test && npm run build`
+(blocks the push on failure), and husky `pre-commit` refusing any staged file under `.github/workflows/`.
+Also confirm GitHub Actions is disabled for this repo in Settings → Actions → General.
+**Depends:** — · **Accept:** the pre-push hook blocks a push when the build fails and allows it when green; `npm run dev` renders a placeholder page in es and en; no workflow file exists in the repo.
 
 ### PR-2 Database schema + migrations
 All tables per ARCHITECTURE.md: tenants, users, customers, products, timbrados, documents,
@@ -138,7 +141,8 @@ Apply `web-design-system`; no pricing page in v1. Must not pull the authenticate
 
 ## Build-chat protocol
 
-- One PR per branch `feat/pr-N-slug`; never push to main directly. Auto-merge on green CI.
+- One PR per branch `feat/pr-N-slug`; never push to main directly.
+- **No GitHub Actions.** "Green" = lint + typecheck + tests + build all passed locally, via the pre-push hook. Merge the PR yourself once that is true. Never create a workflow file, never wait for CI checks that do not exist.
 - Before pushing: run lint, typecheck, build, and tests locally; reproduce-then-fix for any CI failure.
 - After each PR, report to the user: what was done, issues found, ideas for improvement, and
   risks for later PRs. After each phase, update this file's status column below.
@@ -147,7 +151,7 @@ Apply `web-design-system`; no pricing page in v1. Must not pull the authenticate
 
 | PR | Title | Status |
 |----|-------|--------|
-| 1 | Scaffold + CI | pending |
+| 1 | Scaffold + local gate | pending |
 | 2 | Schema | pending |
 | 3 | Auth + roles | pending |
 | 4 | Domain utils | pending |
