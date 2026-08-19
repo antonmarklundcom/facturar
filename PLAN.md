@@ -28,6 +28,12 @@ Relevant local skills for the build chats: `paraguay-business-apps`, `nodejs-mys
 | 14 | Audit | Full `activity_log` + `updated_by`/`updated_at` |
 | 15 | Deploy | Early — right after the foundation phase (PR-6) |
 | 16 | Seed | Idempotent demo-tenant seed with realistic PY data |
+| 17 | Domain | `facturar.clientes.com.py` — own Hostinger Node.js slot, separate from the existing `clientes.com.py` / `crm.clientes.com.py` app. Same slot also serves the Resend sender domain |
+| 18 | Merge flow | The build chat opens and merges its own PRs once CI is green (no branch protection on GitHub Free for private repos); green must be real |
+| 19 | Password reset | Admin-reset only in v1: a tenant admin sets a new password, user must change it at next login. No public reset flow, no email dependency. Self-service reset via Resend is a v1.1 item |
+| 20 | Error monitoring | Structured server logs in v1 (no third-party SDK). Sentry to be added once the first real customer is live — recorded as a v1.1 item, not built now |
+| 21 | Backups | Hostinger's automatic backups as baseline **plus** a scheduled `mysqldump` cron on the slot writing gzipped dumps to a separate path, keeping the last ~14. Also serves as the pre-migration rollback net |
+| 22 | Public surface | `/` is a public marketing landing page, `/login` is the login screen, the authenticated app lives under `/admin/*`. Route contract fixed from PR-3 onward; the landing page itself ships in PR-15 |
 
 Deferred (explicitly out of v1): SIFEN/e-Kuatia e-invoicing (data model must stay ready; never
 claim compliance without verifying current DNIT rules), WhatsApp Cloud API automation, customer
@@ -51,7 +57,11 @@ everywhere. Drizzle migrations committed.
 ### PR-3 Auth + roles + tenant scoping
 Login/logout (iron-session + bcrypt), `users` with role enum, `requireRole()` and
 `tenantScoped()` helpers, middleware protecting the app shell, user management screen (admin only).
-**Depends:** PR-2 · **Accept:** unit tests for role checks; every server action asserts session + tenant; viewer cannot mutate anything.
+Route contract (decision 22): login at `/login`, authenticated app under `/admin/*`, `/` left free
+for the landing page (placeholder until PR-15) — middleware guards `/admin/*` only.
+Admin-reset flow (decision 19): an admin can set a new password for a user in their tenant; the
+user is forced to change it at next login (`must_change_password` flag). No public reset route.
+**Depends:** PR-2 · **Accept:** unit tests for role checks; every server action asserts session + tenant; viewer cannot mutate anything; admin password reset forces a change at next login; no reset route reachable unauthenticated.
 
 ### PR-4 Domain utilities + tests (the money core)
 `validateRuc` (modulo-11 DV), consumidor final handling, IVA-included math (10/5/exenta,
@@ -67,9 +77,12 @@ Apply web-design-system tokens — this must not look like a generic admin templ
 **Depends:** PR-3 · **Accept:** settings persist per tenant; timbrado expiry warning visible when <30 days or <10% of range left.
 
 ### PR-6 Deploy to Hostinger (early)
-Follow the `nextjs-deploy-hostinger` playbook: Node slot, MySQL + Remote MySQL, env vars,
-GitHub-based deploy. Document the live URL + slot in this file when done.
-**Depends:** PR-5 · **Accept:** login works on the live URL against the live DB.
+Follow the `nextjs-deploy-hostinger` playbook: own Node slot for `facturar.clientes.com.py`
+(separate from the existing `clientes.com.py` app), MySQL + Remote MySQL, env vars, GitHub-based
+deploy. Also set up the backup cron (decision 21): scheduled `mysqldump | gzip` to a path outside
+the app directory, retaining the last ~14 dumps, with the command documented in this file.
+Document the live URL + slot here when done.
+**Depends:** PR-5 · **Accept:** login works on the live URL against the live DB; one backup dump verified to exist and to restore into a scratch DB.
 
 ## Phase B — Features (parallelizable once Phase A is merged)
 
@@ -117,6 +130,12 @@ quotes/invoices/payments). Empty states, loading states, mobile QA pass, design-
 `es`/`en` catalog completeness check (no missing keys).
 **Depends:** all · **Accept:** fresh DB + seed → demo-able app in <1 min; no hardcoded UI strings remain (grep gate).
 
+### PR-15 Public landing page
+Marketing landing at `/` on `facturar.clientes.com.py`: hero, 3–4 benefit blocks, a real product
+screenshot, WhatsApp CTA, and a `/login` button. Spanish primary, `en` catalog kept in sync.
+Apply `web-design-system`; no pricing page in v1. Must not pull the authenticated app's bundle.
+**Depends:** PR-10 (needs a real invoice screenshot) · **Accept:** `/` renders publicly with no session; Lighthouse mobile ≥ 90; no hardcoded strings.
+
 ## Build-chat protocol
 
 - One PR per branch `feat/pr-N-slug`; never push to main directly. Auto-merge on green CI.
@@ -142,3 +161,10 @@ quotes/invoices/payments). Empty states, loading states, mobile QA pass, design-
 | 12 | Send flows | pending |
 | 13 | Dashboard + reports | pending |
 | 14 | Seed + polish | pending |
+| 15 | Landing page | pending |
+
+## v1.1 backlog (decided, deliberately not in v1)
+
+- Self-service password reset by email via Resend (signed single-use token, 30-min expiry, rate limited).
+- Sentry (free tier) with a scrubber for RUC, money amounts and email addresses — add once the first real tenant is live.
+- Off-site copy of the nightly dump (outside the Hostinger account).
