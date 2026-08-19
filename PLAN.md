@@ -28,6 +28,8 @@ Relevant local skills for the build chats: `paraguay-business-apps`, `nodejs-mys
 | 14 | Audit | Full `activity_log` + `updated_by`/`updated_at` |
 | 15 | Deploy | Early — right after the foundation phase (PR-6) |
 | 16 | Seed | Idempotent demo-tenant seed with realistic PY data |
+| 17 | Domain | facturar.clientes.com.py (Resend sender domain: clientes.com.py) |
+| 18 | Merge flow | Build chat watches CI and merges each PR itself only when green (no reliance on GitHub branch protection) |
 
 Deferred (explicitly out of v1): SIFEN/e-Kuatia e-invoicing (data model must stay ready; never
 claim compliance without verifying current DNIT rules), WhatsApp Cloud API automation, customer
