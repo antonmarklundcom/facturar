@@ -6,6 +6,9 @@ import { taxRateValues, type Currency, type TaxRate } from "@/db/schema";
 import { formatMoneyParts, formatTaxRate } from "@/domain/format";
 import { computeTotals, parseQty, type DocumentTotals, type LineInput } from "@/domain/iva";
 import { MoneyError, parseAmount } from "@/domain/money";
+import { emptyLine, type LineValues } from "@/lib/documents/line-values";
+
+export type { LineValues };
 
 /**
  * The line editor and its running totals — shared by quotes (PR-9) and
@@ -33,24 +36,11 @@ export type ProductOption = {
   taxRate: TaxRate;
 };
 
-export type LineValues = {
-  productId: string;
-  description: string;
-  unit: string;
-  qty: string;
-  unitAmount: string;
-  taxRate: TaxRate;
-};
-
 /**
  * Screens that use the editor. Each one's catalogue carries the same line
  * labels, so the editor reads them from whichever namespace it is used in.
  */
 export type LineNamespace = "quotes" | "invoices" | "creditNotes";
-
-export function emptyLine(): LineValues {
-  return { productId: "", description: "", unit: "", qty: "1", unitAmount: "", taxRate: "10" };
-}
 
 /** Read a typed line into the domain's shape, or null while it is incomplete. */
 function toLineInput(line: LineValues, currency: Currency): LineInput | null {

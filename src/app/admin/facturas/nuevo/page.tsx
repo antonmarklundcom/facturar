@@ -6,7 +6,7 @@ import { APP_PATH, requireSession } from "@/lib/auth/guards";
 import { can } from "@/lib/auth/roles";
 import { documentEditorOptions } from "@/lib/documents/options";
 import { getTenant } from "@/lib/settings/tenant";
-import { emptyLine } from "@/components/documents/line-editor";
+import { emptyLine } from "@/lib/documents/line-values";
 import { asuncionDateString } from "@/domain/format";
 import { DEFAULT_CREDIT_DAYS } from "@/domain/documents";
 import { InvoiceForm } from "../invoice-form";

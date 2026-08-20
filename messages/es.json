@@ -137,9 +137,9 @@
     "intro": "Acá vas a ver lo que necesita tu atención hoy: facturas vencidas, presupuestos por seguir y avisos de timbrado.",
     "tiles": {
       "overdue": "Vencido sin cobrar",
-      "overdueHint": "{count} facturas vencidas.",
+      "overdueHint": "{count, plural, =0 {Ninguna factura vencida.} one {# factura vencida.} other {# facturas vencidas.}}",
       "outstanding": "Por cobrar",
-      "outstandingHint": "{count} facturas abiertas."
+      "outstandingHint": "{count, plural, =0 {Ninguna factura abierta.} one {# factura abierta.} other {# facturas abiertas.}}"
     },
     "empty": {
       "title": "No hay nada urgente hoy",
@@ -160,7 +160,7 @@
     "quotes": {
       "title": "Presupuestos esperando respuesta",
       "all": "Ver todos",
-      "daysLeft": "{days} días de validez",
+      "daysLeft": "{days, plural, =0 {Vence hoy} one {# día de validez} other {# días de validez}}",
       "noExpiry": "Sin fecha de validez",
       "status": {
         "borrador": "Borrador",
@@ -870,7 +870,7 @@
       "thisYear": "Este año"
     },
     "ivaTitle": "Liquidación del IVA · {currency}",
-    "documentsCounted": "{invoices} facturas · {creditNotes} notas de crédito",
+    "documentsCounted": "{invoices, plural, one {# factura} other {# facturas}} · {creditNotes, plural, one {# nota de crédito} other {# notas de crédito}}",
     "gravadas10": "Gravadas 10%",
     "gravadas5": "Gravadas 5%",
     "exentas": "Exentas",

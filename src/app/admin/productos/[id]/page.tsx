@@ -63,7 +63,7 @@ export default async function ProductDetailPage({
       />
 
       <div className="grid gap-[var(--s-6)] lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-        <Card variant="raised">
+        <Card variant="raised" className="min-w-0">
           <SectionTitle>{mayWrite ? t("editTitle") : t("detailsTitle")}</SectionTitle>
 
           {mayWrite ? (
@@ -93,7 +93,7 @@ export default async function ProductDetailPage({
           )}
         </Card>
 
-        <div className="flex flex-col gap-[var(--s-4)]">
+        <div className="flex min-w-0 flex-col gap-[var(--s-4)]">
           <Card variant="hair">
             <p className="eyebrow m-0">{t("priceBreakdown")}</p>
             <p className="tabular m-0 mt-[var(--s-2)] font-[family-name:var(--font-display)] text-[length:var(--t-2)] leading-none">

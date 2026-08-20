@@ -140,8 +140,8 @@ export default async function InvoiceDetailPage({
       />
 
       <div className="grid gap-[var(--s-6)] lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-        <div className="flex flex-col gap-[var(--s-6)]">
-          <Card variant="raised" className="overflow-x-auto">
+        <div className="flex min-w-0 flex-col gap-[var(--s-6)]">
+          <Card variant="raised" className="min-w-0 overflow-x-auto">
             <SectionTitle
               hint={
                 full.document.dueDate
@@ -370,7 +370,7 @@ export default async function InvoiceDetailPage({
           ) : null}
         </div>
 
-        <div className="flex flex-col gap-[var(--s-4)]">
+        <div className="flex min-w-0 flex-col gap-[var(--s-4)]">
           <Card variant="hair">
             <p className="eyebrow m-0">{t("status")}</p>
             <div className="mt-[var(--s-3)] flex flex-wrap gap-[var(--s-2)]">

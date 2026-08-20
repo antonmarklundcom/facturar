@@ -161,3 +161,6 @@ next-env.d.ts
 
 # local scratch space for one-off verification scripts
 /.scratch/
+
+# Screenshots written by scripts/qa.mjs
+qa-*.png

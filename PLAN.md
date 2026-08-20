@@ -161,7 +161,7 @@ Apply `web-design-system`; no pricing page in v1. Must not pull the authenticate
 | 11 | Credit notes + payments | **merged** |
 | 12 | Send flows | **merged** |
 | 13 | Dashboard + reports | **merged** |
-| 14 | Seed + polish | pending |
+| 14 | Seed + polish | **merged** |
 | 15 | Landing page | pending |
 
 ## Phase A notes (recorded 2026-08-20)
@@ -356,6 +356,42 @@ Carried into later PRs rather than fixed in place:
 - **PR-14 is the last build PR**: seed, empty/loading states, mobile QA and the
   no-hardcoded-strings grep gate. PR-15 (landing page) can now take a real screenshot of
   a working invoice.
+
+## PR-14 notes (recorded 2026-08-20)
+
+**Phase B ran against a real database for the first time in this PR.** A MariaDB 10.11
+was installed in the build container, the migrations applied cleanly, the demo seed ran,
+and the whole app was driven in a real browser. That closed the standing "not verified
+against a live database" caveat on PR-7 → PR-13.
+
+- **`tests/domain/numbering.db.test.ts` passes** against a real database. Gap-free
+  numbering under concurrent issuing is now observed, not argued.
+- **Two real bugs were found by running it**, neither visible to lint, typecheck or unit
+  tests:
+  1. `emptyLine()` was exported from a `"use client"` module and called from a server
+     component, which **500s in a production build** — `/admin/presupuestos/nuevo` and
+     `/admin/facturas/nuevo` were both broken. Moved to `src/lib/documents/line-values.ts`.
+     Rule for later PRs: a server component may *render* a client component, never call a
+     function exported from one.
+  2. The two-column grids overflowed horizontally at 390 px, because a grid item's default
+     `min-width` is its content and a wide table would not let it shrink. Fixed with
+     `min-w-0` on the grid children.
+- **`npm run db:seed`** creates the demo tenant; `-- --reset` rebuilds it. RUC check
+  digits are computed with `computeRucDv`, never hand-written, and invoice numbers come
+  from the real generator, so the seeded documents are numbered 0000001–0000005 with no
+  gaps.
+- **`NODE_OPTIONS="--conditions=react-server"`** is what lets a plain `tsx` script import
+  the app's `server-only` modules. That closes the Phase A finding without weakening the
+  marker; the npm script sets it.
+- **`scripts/qa.mjs`** is the end-to-end pass: login, every screen against seeded data,
+  an issued invoice being read-only, the PDF and buyer link with no session, CSV, a viewer
+  seeing no mutating forms, and no horizontal scroll at 390 px on any screen. Playwright is
+  deliberately **not** a dependency — point `PLAYWRIGHT_MODULE` at a scratch install.
+- **Loading skeletons** now render on every list route, and plural rules were added where
+  a count is interpolated ("1 factura vencida", not "1 facturas vencidas").
+- **Design nit for later:** the display font has no `₲` glyph, so the browser falls back
+  for that one character in the big dashboard figures. Legible, but slightly mismatched —
+  worth a font with U+20B2 before the first paying customer.
 
 ## v1.1 backlog (decided, deliberately not in v1)
 
