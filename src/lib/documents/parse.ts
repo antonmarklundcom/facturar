@@ -1,10 +1,12 @@
 import {
   currencyValues,
   localeValues,
+  paymentMethodValues,
   taxRateValues,
   type Currency,
   type DocumentLocale,
   type DocumentType,
+  type PaymentMethod,
   type TaxRate,
 } from "@/db/schema";
 import { field } from "@/lib/forms";
@@ -325,4 +327,126 @@ export function parseInvoice(formData: FormData, today: string): ParsedInvoice {
 /** Credit days a stored invoice was written with, for the edit form. */
 export function creditDaysBetween(issueDate: string, dueDate: string): number {
   return validityDaysBetween(issueDate, dueDate);
+}
+
+/* -------------------------------------------------------------------------- */
+/* payments and credit notes                                                   */
+/* -------------------------------------------------------------------------- */
+
+export type PaymentInput = {
+  amount: number;
+  currency: Currency;
+  method: PaymentMethod;
+  paidAt: Date;
+  reference: string | null;
+  notes: string | null;
+};
+
+export const PAYMENT_FIELDS = [
+  "amount",
+  "method",
+  "paidAt",
+  "reference",
+  "paymentNotes",
+] as const;
+
+export type ParsedPayment =
+  | { ok: true; values: PaymentInput }
+  | { ok: false; fieldErrors: FieldErrors };
+
+/**
+ * A payment against an invoice. The currency is the **invoice's** — a payment
+ * in another currency is a different conversation (exchange rates on
+ * settlement), and letting the form choose one would silently mis-scale the
+ * amount (guardrail 1).
+ */
+export function parsePayment(
+  formData: FormData,
+  currency: Currency,
+  today: string,
+): ParsedPayment {
+  const errors = new Errors();
+
+  const amount = moneyField(field(formData, "amount"), currency, { allowZero: false });
+  if (!amount.ok) errors.set("amount", amount.error);
+
+  const method = enumValue(field(formData, "method"), paymentMethodValues);
+  if (!method.ok) errors.set("method", method.error);
+
+  const paidAtRaw = field(formData, "paidAt");
+  const paidAtDate = DATE_PATTERN.test(paidAtRaw) ? paidAtRaw : today;
+  if (paidAtRaw !== "" && !DATE_PATTERN.test(paidAtRaw)) errors.set("paidAt", "invalid");
+  // A payment cannot have been received in the future.
+  if (paidAtDate > today) errors.set("paidAt", "future");
+
+  const reference = optionalText(field(formData, "reference"), 120);
+  if (!reference.ok) errors.set("reference", reference.error);
+
+  const notes = optionalText(field(formData, "paymentNotes"), 2000);
+  if (!notes.ok) errors.set("paymentNotes", notes.error);
+
+  if (errors.any) return { ok: false, fieldErrors: errors.all };
+  if (!amount.ok || !method.ok || !reference.ok || !notes.ok) {
+    throw new Error("unreachable");
+  }
+
+  return {
+    ok: true,
+    values: {
+      amount: amount.value,
+      currency,
+      method: method.value,
+      // Stored as an instant at Asunción midday, so a date-only entry cannot
+      // drift across a day boundary when rendered back in UTC.
+      paidAt: new Date(`${paidAtDate}T15:00:00.000Z`),
+      reference: reference.value,
+      notes: notes.value,
+    },
+  };
+}
+
+export type CreditNoteInput = {
+  lines: DocumentLineInput[];
+  notes: string | null;
+};
+
+export const CREDIT_NOTE_FIELDS = ["creditNotes"] as const;
+
+export type ParsedCreditNote =
+  | { ok: true; values: CreditNoteInput }
+  | { ok: false; fieldErrors: FieldErrors };
+
+/**
+ * A credit note's lines. Same editor and same rules as an invoice's — a credit
+ * note is an invoice in reverse, and its IVA has to break down per rate the
+ * same way, or the two documents will not reconcile.
+ *
+ * The amounts are entered positive; the note's *meaning* is the reversal.
+ */
+export function parseCreditNote(
+  formData: FormData,
+  currency: Currency,
+  today: string,
+): ParsedCreditNote {
+  const data = new FormData();
+  for (const [name, value] of formData.entries()) data.append(name, value);
+
+  // Reuse the line rules wholesale by handing the quote parser the header it
+  // expects; only the lines and the note text are read back out.
+  data.set("customerId", field(formData, "customerId") || "1");
+  data.set("docLocale", "es");
+  data.set("currency", currency);
+  data.set("issueDate", today);
+  data.set("validityDays", "1");
+  data.set("notes", field(formData, "creditNotes"));
+
+  const parsed = parseQuote(data, today);
+  if (!parsed.ok) {
+    // The customer is the invoice's, not something this form asked for.
+    const fieldErrors = { ...parsed.fieldErrors };
+    delete fieldErrors.customerId;
+    return { ok: false, fieldErrors };
+  }
+
+  return { ok: true, values: { lines: parsed.values.lines, notes: parsed.values.notes } };
 }

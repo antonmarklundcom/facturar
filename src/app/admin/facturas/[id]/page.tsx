@@ -6,7 +6,12 @@ import { Badge, Card, PageHeader, SectionTitle } from "@/components/ui/page";
 import { TotalRow } from "@/components/documents/line-editor";
 import { requireSession } from "@/lib/auth/guards";
 import { can } from "@/lib/auth/roles";
-import { findDocument } from "@/lib/documents/data";
+import {
+  findDocument,
+  invoiceBalance,
+  listCreditNotes,
+  listPayments,
+} from "@/lib/documents/data";
 import { documentEditorOptions } from "@/lib/documents/options";
 import { creditDaysBetween } from "@/lib/documents/parse";
 import { publicDocumentUrl } from "@/lib/documents/token";
@@ -24,9 +29,12 @@ import { isDocumentEditable, isIssuable, isIssued, isOverdue } from "@/domain/do
 import { previewNextNumber } from "@/domain/numbering";
 import { timbradoStatus } from "@/domain/timbrado";
 import { waMeLink } from "@/domain/whatsapp";
+import { creditableAmount } from "@/domain/payments";
 import { statusTone } from "../../presupuestos/status";
+import { CreditNoteForm } from "../credit-note-form";
 import { InvoiceForm } from "../invoice-form";
-import { IssueInvoiceForm } from "../issue-form";
+import { IssueInvoiceForm, type TimbradoOption } from "../issue-form";
+import { PaymentForm } from "../payment-form";
 
 export async function generateMetadata({
   params,
@@ -60,23 +68,42 @@ export default async function InvoiceDetailPage({
     notFound();
   }
 
-  const [t, locale] = await Promise.all([getTranslations("invoices"), getLocale()]);
+  const [t, payments, credits, locale] = await Promise.all([
+    getTranslations("invoices"),
+    getTranslations("payments"),
+    getTranslations("creditNotes"),
+    getLocale(),
+  ]);
   const uiLocale = locale === "en" ? "en" : "es";
   const today = asuncionDateString(new Date());
 
   const issued = isIssued(full.document);
   const mayWrite = can(session.role, "documents.write");
   const mayIssue = can(session.role, "documents.issue");
+  const mayPay = can(session.role, "payments.write");
   const editable = mayWrite && isDocumentEditable(full.document);
 
-  const [options, timbrados] = await Promise.all([
+  const [options, timbradoRows, balance, paymentRows, creditNotes] = await Promise.all([
     editable
       ? documentEditorOptions(session.tenantId)
       : Promise.resolve({ customers: [], products: [] }),
-    isIssuable(full.document) && mayIssue
-      ? listTimbrados(session.tenantId)
-      : Promise.resolve([]),
+    mayIssue ? listTimbrados(session.tenantId) : Promise.resolve([]),
+    invoiceBalance(session.tenantId, full.document, today),
+    issued ? listPayments(session.tenantId, full.document.id) : Promise.resolve([]),
+    issued ? listCreditNotes(session.tenantId, full.document.id) : Promise.resolve([]),
   ]);
+
+  const timbradoOptions: TimbradoOption[] = timbradoRows.map((timbrado) => {
+    const status = timbradoStatus(toSnapshot(timbrado), today);
+    return {
+      id: timbrado.id,
+      label: timbrado.number,
+      nextNumber: previewNextNumber(toSnapshot(timbrado), today),
+      issuable: status.issuable,
+    };
+  });
+
+  const stillCreditable = creditableAmount(full.document.total, balance.credited);
 
   const share = await getTranslations({
     locale: full.document.docLocale,
@@ -242,6 +269,99 @@ export default async function InvoiceDetailPage({
               </p>
             </Card>
           ) : null}
+
+          {issued ? (
+            <Card variant="raised">
+              <SectionTitle hint={payments("hint")}>{payments("title")}</SectionTitle>
+
+              {paymentRows.length === 0 ? (
+                <p className="m-0 mb-[var(--s-5)] text-[length:var(--t--1)] text-ink-55">
+                  {payments("none")}
+                </p>
+              ) : (
+                <ul className="m-0 mb-[var(--s-5)] flex list-none flex-col gap-[var(--s-2)] p-0">
+                  {paymentRows.map((payment) => (
+                    <li
+                      key={payment.id}
+                      className="flex flex-wrap items-baseline justify-between gap-[var(--s-3)] border-b border-hairline pb-[var(--s-2)] last:border-0"
+                    >
+                      <span>
+                        <span className="tabular font-medium">
+                          {formatMoneyParts(payment.amount, payment.currency)}
+                        </span>{" "}
+                        <span className="text-[length:var(--t--1)] text-ink-55">
+                          {payments(`methods.${payment.method}`)}
+                          {payment.reference ? ` · ${payment.reference}` : ""}
+                        </span>
+                      </span>
+                      <span className="tabular text-[length:var(--t--1)] text-ink-55">
+                        {formatDateTime(payment.paidAt)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {mayPay && balance.outstanding > 0 && balance.status !== "anulada" ? (
+                <PaymentForm
+                  documentId={full.document.id}
+                  outstandingLabel={formatMoneyParts(
+                    balance.outstanding,
+                    full.document.currency,
+                  )}
+                  today={today}
+                />
+              ) : null}
+            </Card>
+          ) : null}
+
+          {issued ? (
+            <Card variant="raised">
+              <SectionTitle hint={credits("hint")}>{credits("title")}</SectionTitle>
+
+              {creditNotes.length === 0 ? (
+                <p className="m-0 mb-[var(--s-5)] text-[length:var(--t--1)] text-ink-55">
+                  {credits("none")}
+                </p>
+              ) : (
+                <ul className="m-0 mb-[var(--s-5)] flex list-none flex-col gap-[var(--s-2)] p-0">
+                  {creditNotes.map((note) => (
+                    <li
+                      key={note.id}
+                      className="flex flex-wrap items-baseline justify-between gap-[var(--s-3)] border-b border-hairline pb-[var(--s-2)] last:border-0"
+                    >
+                      <Link
+                        href={`/admin/notas-credito/${note.id}`}
+                        className="tabular font-medium no-underline hover:underline"
+                      >
+                        {note.number ?? credits("draft")}
+                      </Link>
+                      <span className="tabular">
+                        {formatMoneyParts(note.total, note.currency)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {mayIssue && stillCreditable > 0 && balance.status !== "anulada" ? (
+                <CreditNoteForm
+                  documentId={full.document.id}
+                  currency={full.document.currency}
+                  creditableLabel={formatMoneyParts(stillCreditable, full.document.currency)}
+                  timbrados={timbradoOptions}
+                  invoiceLines={full.lines.map((line) => ({
+                    productId: "",
+                    description: line.description,
+                    unit: line.unit,
+                    qty: formatQty(line.qty),
+                    unitAmount: formatAmount(line.unitAmount, full.document.currency),
+                    taxRate: line.taxRate,
+                  }))}
+                />
+              ) : null}
+            </Card>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-[var(--s-4)]">
@@ -252,6 +372,25 @@ export default async function InvoiceDetailPage({
                 {overdue ? t("statuses.vencida") : t(`statuses.${full.document.status}`)}
               </Badge>
             </div>
+            {issued ? (
+              <dl className="m-0 mt-[var(--s-4)]">
+                <TotalRow
+                  label={t("paid")}
+                  value={formatMoneyParts(balance.paid, full.document.currency)}
+                />
+                {balance.credited > 0 ? (
+                  <TotalRow
+                    label={t("credited")}
+                    value={formatMoneyParts(balance.credited, full.document.currency)}
+                  />
+                ) : null}
+                <TotalRow
+                  label={t("outstanding")}
+                  value={formatMoneyParts(balance.outstanding, full.document.currency)}
+                  strong
+                />
+              </dl>
+            ) : null}
             {full.document.issuedAt ? (
               <p className="m-0 mt-[var(--s-4)] text-[length:var(--t--1)] text-ink-55">
                 {t("issuedAt", { date: formatDateTime(full.document.issuedAt) })}
@@ -265,18 +404,7 @@ export default async function InvoiceDetailPage({
               <p className="m-0 mb-[var(--s-4)] mt-[var(--s-2)] text-[length:var(--t--1)] text-ink-55">
                 {t("issueHint")}
               </p>
-              <IssueInvoiceForm
-                documentId={full.document.id}
-                timbrados={timbrados.map((timbrado) => {
-                  const status = timbradoStatus(toSnapshot(timbrado), today);
-                  return {
-                    id: timbrado.id,
-                    label: timbrado.number,
-                    nextNumber: previewNextNumber(toSnapshot(timbrado), today),
-                    issuable: status.issuable,
-                  };
-                })}
-              />
+              <IssueInvoiceForm documentId={full.document.id} timbrados={timbradoOptions} />
             </Card>
           ) : null}
 

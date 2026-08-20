@@ -42,6 +42,12 @@ export type LineValues = {
   taxRate: TaxRate;
 };
 
+/**
+ * Screens that use the editor. Each one's catalogue carries the same line
+ * labels, so the editor reads them from whichever namespace it is used in.
+ */
+export type LineNamespace = "quotes" | "invoices" | "creditNotes";
+
 export function emptyLine(): LineValues {
   return { productId: "", description: "", unit: "", qty: "1", unitAmount: "", taxRate: "10" };
 }
@@ -80,7 +86,7 @@ export function LineEditor({
   currency: Currency;
   error: (name: string) => string | undefined;
   /** Message namespace of the screen using the editor. */
-  namespace: "quotes" | "invoices";
+  namespace: LineNamespace;
 }) {
   const t = useTranslations(namespace);
   // Rate labels are UI text, so they follow the viewer's language; document
@@ -264,7 +270,7 @@ export function TotalsPanel({
 }: {
   totals: DocumentTotals;
   currency: Currency;
-  namespace: "quotes" | "invoices";
+  namespace: LineNamespace;
 }) {
   const t = useTranslations(namespace);
 

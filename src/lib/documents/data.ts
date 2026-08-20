@@ -6,16 +6,25 @@ import {
   customers,
   documentLines,
   documents,
+  payments,
   type Customer,
   type Document,
   type DocumentLine,
   type DocumentStatus,
   type DocumentType,
+  type Payment,
+  type PaymentMethod,
 } from "@/db/schema";
 import { assertRowTenant, tenantScoped } from "@/db/tenant";
 import { computeLine, computeTotals } from "@/domain/iva";
 import { allocateDocumentNumber, type AllocatedNumber } from "@/domain/numbering.server";
 import { isIssued, validUntilFrom } from "@/domain/documents";
+import {
+  derivePaymentStatus,
+  outstanding,
+  paidTotal,
+  type PaymentLike,
+} from "@/domain/payments";
 import type { DocumentLineInput, InvoiceInput, QuoteInput } from "./parse";
 import { generatePublicToken } from "./token";
 
@@ -509,4 +518,220 @@ export async function setPdfSnapshot(
         isNull(documents.pdfSnapshot),
       ),
     );
+}
+
+/* -------------------------------------------------------------------------- */
+/* payments and credit notes                                                   */
+/* -------------------------------------------------------------------------- */
+
+export async function listPayments(
+  tenantId: number,
+  documentId: number,
+): Promise<Payment[]> {
+  return db
+    .select()
+    .from(payments)
+    .where(tenantScoped(payments, tenantId, eq(payments.documentId, documentId)))
+    .orderBy(desc(payments.paidAt), desc(payments.id));
+}
+
+/** Every credit note issued against an invoice. */
+export async function listCreditNotes(
+  tenantId: number,
+  invoiceId: number,
+): Promise<Document[]> {
+  return db
+    .select()
+    .from(documents)
+    .where(
+      tenantScoped(
+        documents,
+        tenantId,
+        eq(documents.type, "credit_note"),
+        eq(documents.relatedDocumentId, invoiceId),
+      ),
+    )
+    .orderBy(desc(documents.id));
+}
+
+export type InvoiceBalance = {
+  total: number;
+  paid: number;
+  credited: number;
+  outstanding: number;
+  status: DocumentStatus;
+};
+
+/**
+ * What an invoice actually stands at: paid, credited, still owing, and the
+ * status those imply. The arithmetic lives in `domain/payments` — this only
+ * gathers the rows (guardrail 1).
+ */
+export async function invoiceBalance(
+  tenantId: number,
+  invoice: Document,
+  today: string,
+): Promise<InvoiceBalance> {
+  const [paymentRows, creditNotes] = await Promise.all([
+    listPayments(tenantId, invoice.id),
+    listCreditNotes(tenantId, invoice.id),
+  ]);
+
+  const paid = paidTotal(paymentRows as PaymentLike[]);
+  // Only an *issued* credit note reduces what is owed; a draft is a proposal.
+  const credited = creditNotes
+    .filter((note) => isIssued(note))
+    .reduce((sum, note) => sum + note.total, 0);
+
+  return {
+    total: invoice.total,
+    paid,
+    credited,
+    outstanding: outstanding(invoice.total, paid, credited),
+    status: derivePaymentStatus({
+      total: invoice.total,
+      paid,
+      credited,
+      dueDate: invoice.dueDate,
+      today,
+    }),
+  };
+}
+
+/**
+ * Recompute an issued invoice's status from its payments and credit notes and
+ * store it.
+ *
+ * The status is derived, never typed in, so this is the only writer of it
+ * after issuing. It deliberately touches nothing else on the row: the content
+ * of an issued invoice stays immutable (guardrail 4) — what changes is the
+ * world around it.
+ */
+export async function refreshInvoiceStatus(
+  tenantId: number,
+  invoiceId: number,
+  today: string,
+): Promise<DocumentStatus | null> {
+  const rows = await db
+    .select()
+    .from(documents)
+    .where(tenantScoped(documents, tenantId, eq(documents.id, invoiceId)))
+    .limit(1);
+
+  const invoice = rows[0];
+  if (!invoice || !isIssued(invoice)) return null;
+
+  const balance = await invoiceBalance(tenantId, invoice, today);
+  if (balance.status === invoice.status) return invoice.status;
+
+  await db
+    .update(documents)
+    .set({ status: balance.status })
+    .where(tenantScoped(documents, tenantId, eq(documents.id, invoiceId)));
+
+  return balance.status;
+}
+
+export async function insertPayment(
+  tenantId: number,
+  values: {
+    documentId: number;
+    amount: number;
+    currency: Document["currency"];
+    method: PaymentMethod;
+    paidAt: Date;
+    reference: string | null;
+    notes: string | null;
+  },
+  userId: number,
+): Promise<number> {
+  const [result] = await db
+    .insert(payments)
+    .values({ ...values, tenantId, createdBy: userId, updatedBy: userId });
+
+  return result.insertId;
+}
+
+/**
+ * Issue a credit note against an issued invoice.
+ *
+ * A credit note is a legal document in its own right: it takes its own number
+ * from a timbrado, in the same transaction as the write (guardrail 6), and is
+ * immutable from the moment it exists — there is deliberately no draft state
+ * and no edit path for one.
+ */
+export async function createAndIssueCreditNote(options: {
+  tenantId: number;
+  invoice: Document;
+  lines: readonly DocumentLineInput[];
+  timbradoId: number;
+  userId: number;
+  today: string;
+  notes: string | null;
+}): Promise<{ creditNoteId: number; number: string }> {
+  const { tenantId, invoice, lines, timbradoId, userId, today, notes } = options;
+
+  return db.transaction(async (tx) => {
+    const allocated = await allocateDocumentNumber(tx, { tenantId, timbradoId, today });
+
+    const [result] = await tx.insert(documents).values({
+      tenantId,
+      type: "credit_note",
+      status: "pendiente",
+      number: allocated.number,
+      timbradoId: allocated.timbradoId,
+      customerId: invoice.customerId,
+      docLocale: invoice.docLocale,
+      currency: invoice.currency,
+      exchangeRate: invoice.exchangeRate,
+      issueDate: today,
+      relatedDocumentId: invoice.id,
+      notes,
+      publicToken: generatePublicToken(),
+      ...totalsFor({ lines, currency: invoice.currency }),
+      issuedAt: new Date(),
+      issuedBy: userId,
+      createdBy: userId,
+      updatedBy: userId,
+    });
+
+    const creditNoteId = result.insertId;
+    const rows = lineRows(tenantId, creditNoteId, lines);
+    if (rows.length > 0) await tx.insert(documentLines).values(rows);
+
+    return { creditNoteId, number: allocated.number };
+  });
+}
+
+export type RecentPayment = {
+  payment: Payment;
+  documentNumber: string | null;
+  customerName: string | null;
+};
+
+/** Every payment received, newest first — the payments screen (PR-11). */
+export async function listRecentPayments(
+  tenantId: number,
+  limit = 200,
+): Promise<RecentPayment[]> {
+  const rows = await db
+    .select({ payment: payments, document: documents, customer: customers })
+    .from(payments)
+    .leftJoin(
+      documents,
+      and(eq(documents.id, payments.documentId), eq(documents.tenantId, payments.tenantId)),
+    )
+    .leftJoin(
+      customers,
+      and(eq(customers.id, documents.customerId), eq(customers.tenantId, documents.tenantId)),
+    )
+    .where(tenantScoped(payments, tenantId))
+    .orderBy(desc(payments.paidAt), desc(payments.id))
+    .limit(limit);
+
+  return rows.map((row) => ({
+    payment: row.payment,
+    documentNumber: row.document?.number ?? null,
+    customerName: row.customer?.name ?? null,
+  }));
 }
