@@ -255,5 +255,80 @@
       "out_of_range": "It must fall inside the authorised range.",
       "already_issued": "You cannot narrow the range below numbers already issued."
     }
+  },
+  "customers": {
+    "eyebrow": "Customers",
+    "title": "Customers",
+    "intro": "Your customer list. The RUC and WhatsApp number stored here are the ones printed on every document.",
+    "search": "Search",
+    "searchPlaceholder": "Name, RUC or WhatsApp",
+    "showInactive": "Show inactive",
+    "actions": "Actions",
+    "name": "Name or company name",
+    "ruc": "RUC",
+    "rucHint": "Including the check digit, for example 80012345-0.",
+    "rucOptionalHint": "Optional for a final consumer.",
+    "noRuc": "No RUC — final consumer",
+    "consumidorFinal": "Final consumer (no RUC)",
+    "consumidorFinalShort": "Final consumer",
+    "whatsapp": "WhatsApp",
+    "whatsappHint": "Type it any way you like: 0981 123456 or +595 981 123456.",
+    "openWhatsapp": "Open WhatsApp",
+    "email": "Email",
+    "address": "Address",
+    "docLocale": "Document language",
+    "docLocaleHint": "The language this customer's quotes and invoices are issued in.",
+    "notes": "Internal notes",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "updatedAt": "Updated {date}",
+    "view": "View",
+    "edit": "Edit",
+    "editTitle": "Customer details",
+    "detailsTitle": "Customer details",
+    "backToList": "Back to customers",
+    "create": "Add customer",
+    "createTitle": "New customer",
+    "createHint": "A name and a RUC are enough to send them a quote.",
+    "save": "Save",
+    "saving": "Saving…",
+    "deactivate": "Deactivate",
+    "restore": "Restore",
+    "deactivateHint": "Customers are never deleted — they stay on the invoices already issued. Deactivating just hides them from the list.",
+    "readOnly": "Your role can view customers but not change them.",
+    "waGreeting": "Hello {name}, this is {company}.",
+    "waFallbackCompany": "our company",
+    "locales": {
+      "es": "Spanish",
+      "en": "English"
+    },
+    "empty": {
+      "title": "No customers yet",
+      "body": "Add your first one with a name and a RUC. You can then issue quotes and invoices to them."
+    },
+    "noResults": {
+      "title": "No customer matches that search",
+      "body": "Try part of the name, the RUC without its check digit, or include inactive customers."
+    },
+    "messages": {
+      "created": "Customer added.",
+      "updated": "Customer updated.",
+      "deactivated": "Customer deactivated.",
+      "restored": "Customer restored."
+    },
+    "errors": {
+      "invalid": "Check the highlighted fields.",
+      "required": "This field is required.",
+      "notFound": "That customer could not be found.",
+      "too_long": "That is too long.",
+      "empty": "This field is required.",
+      "malformed": "That does not look like a valid number.",
+      "too_short": "Some digits are missing.",
+      "missing_dv": "The check digit is missing.",
+      "wrong_dv": "The check digit does not match the RUC.",
+      "wrong_country": "Only Paraguayan numbers (+595) are accepted.",
+      "not_mobile": "This must be a mobile number, not a landline."
+    }
   }
 }
