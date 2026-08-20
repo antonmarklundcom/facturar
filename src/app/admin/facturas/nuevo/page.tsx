@@ -6,22 +6,22 @@ import { APP_PATH, requireSession } from "@/lib/auth/guards";
 import { can } from "@/lib/auth/roles";
 import { documentEditorOptions } from "@/lib/documents/options";
 import { getTenant } from "@/lib/settings/tenant";
-import { asuncionDateString } from "@/domain/format";
-import { DEFAULT_VALIDITY_DAYS } from "@/domain/documents";
 import { emptyLine } from "@/components/documents/line-editor";
-import { QuoteForm } from "../quote-form";
+import { asuncionDateString } from "@/domain/format";
+import { DEFAULT_CREDIT_DAYS } from "@/domain/documents";
+import { InvoiceForm } from "../invoice-form";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("quotes");
+  const t = await getTranslations("invoices");
   return { title: t("new") };
 }
 
-export default async function NewQuotePage() {
+export default async function NewInvoicePage() {
   const session = await requireSession();
   if (!can(session.role, "documents.write")) redirect(APP_PATH);
 
   const [t, tenant, options] = await Promise.all([
-    getTranslations("quotes"),
+    getTranslations("invoices"),
     getTenant(session.tenantId),
     documentEditorOptions(session.tenantId),
   ]);
@@ -31,16 +31,17 @@ export default async function NewQuotePage() {
       <PageHeader eyebrow={t("eyebrow")} title={t("new")} description={t("newIntro")} />
 
       <Card variant="raised">
-        <QuoteForm
+        <InvoiceForm
           mode="create"
           customers={options.customers}
           products={options.products}
           values={{
+            type: "invoice_contado",
             customerId: "",
             docLocale: "es",
             currency: tenant?.defaultCurrency ?? "PYG",
             issueDate: asuncionDateString(new Date()),
-            validityDays: String(DEFAULT_VALIDITY_DAYS),
+            creditDays: String(DEFAULT_CREDIT_DAYS),
             notes: "",
             lines: [emptyLine()],
           }}

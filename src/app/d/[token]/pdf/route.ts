@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { findDocumentByToken } from "@/lib/documents/data";
 import { isPublicTokenShape } from "@/lib/documents/token";
 import { pdfFilename, renderDocumentPdf } from "@/lib/pdf/render";
+import { readSnapshot } from "@/lib/pdf/storage";
 import { getTenant } from "@/lib/settings/tenant";
 
 export const runtime = "nodejs";
@@ -24,7 +25,11 @@ export async function GET(
   const tenant = await getTenant(full.document.tenantId);
   if (!tenant) return new NextResponse(null, { status: 404 });
 
-  const body = await renderDocumentPdf(full, tenant);
+  // An issued document serves the bytes frozen at issue time (guardrail 4);
+  // a quote, or a document whose snapshot file is missing, renders live.
+  const body =
+    (await readSnapshot(full.document.pdfSnapshot)) ??
+    (await renderDocumentPdf(full, tenant));
 
   return new NextResponse(new Uint8Array(body), {
     headers: {

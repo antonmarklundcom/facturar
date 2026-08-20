@@ -3,7 +3,10 @@ import "server-only";
 import { listCustomers } from "@/lib/customers/data";
 import { listProducts } from "@/lib/products/data";
 import { formatAmount } from "@/domain/format";
-import type { CustomerOption, ProductOption } from "@/app/admin/presupuestos/quote-form";
+import type {
+  CustomerOption,
+  ProductOption,
+} from "@/components/documents/line-editor";
 
 /**
  * The pickers a document editor needs. Both lists are already tenant-scoped by

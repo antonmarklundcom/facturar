@@ -79,8 +79,12 @@ describe("canTransition", () => {
     expect(canTransition("quote", "pendiente", "enviado")).toBe(false);
   });
 
-  it("does not yet move invoices — PR-10/PR-11 own those transitions", () => {
-    expect(canTransition("invoice_contado", "borrador", "pendiente")).toBe(false);
+  it("moves an invoice only from draft to outstanding — issuing", () => {
+    // The rest of an invoice's life is derived from payments and credit notes
+    // (PR-11), never typed in by a person.
+    expect(canTransition("invoice_contado", "borrador", "pendiente")).toBe(true);
+    expect(canTransition("invoice_contado", "pendiente", "pagada")).toBe(false);
+    expect(canTransition("invoice_contado", "pendiente", "borrador")).toBe(false);
   });
 });
 

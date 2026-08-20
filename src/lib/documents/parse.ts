@@ -4,6 +4,7 @@ import {
   taxRateValues,
   type Currency,
   type DocumentLocale,
+  type DocumentType,
   type TaxRate,
 } from "@/db/schema";
 import { field } from "@/lib/forms";
@@ -17,7 +18,13 @@ import {
   type FieldErrors,
 } from "@/lib/validation";
 import { parseQty } from "@/domain/iva";
-import { DEFAULT_VALIDITY_DAYS, validUntilFrom } from "@/domain/documents";
+import {
+  DEFAULT_CREDIT_DAYS,
+  DEFAULT_VALIDITY_DAYS,
+  dueDateFrom,
+  requiresDueDate,
+  validUntilFrom,
+} from "@/domain/documents";
 
 /**
  * Quote form parsing — pure, so the line-item rules are unit-testable without
@@ -226,4 +233,96 @@ export function validityDaysBetween(issueDate: string, validUntil: string): numb
     return Date.UTC(year, month - 1, day);
   };
   return Math.round((at(validUntil) - at(issueDate)) / 86_400_000);
+}
+
+/* -------------------------------------------------------------------------- */
+/* invoices                                                                    */
+/* -------------------------------------------------------------------------- */
+
+export type InvoiceInput = {
+  type: Extract<DocumentType, "invoice_contado" | "invoice_credito">;
+  customerId: number;
+  docLocale: DocumentLocale;
+  currency: Currency;
+  issueDate: string;
+  /** Only a factura a crédito has one. */
+  dueDate: string | null;
+  notes: string | null;
+  lines: DocumentLineInput[];
+};
+
+export const INVOICE_FIELDS = [
+  "type",
+  "customerId",
+  "docLocale",
+  "currency",
+  "issueDate",
+  "creditDays",
+  "notes",
+] as const;
+
+const MAX_CREDIT_DAYS = 365;
+
+export type ParsedInvoice =
+  | { ok: true; values: InvoiceInput }
+  | { ok: false; fieldErrors: FieldErrors };
+
+/**
+ * Invoice draft parsing. Shares the line rules with quotes — the lines are the
+ * same thing, and PR-9 already tests them — and adds the credit terms.
+ *
+ * Nothing here allocates a number: a number comes only from the PR-4
+ * generator, inside the issuing transaction (guardrail 6).
+ */
+export function parseInvoice(formData: FormData, today: string): ParsedInvoice {
+  const asQuote = parseQuote(formData, today);
+
+  const errors = new Errors();
+  const type = enumValue(field(formData, "type"), [
+    "invoice_contado",
+    "invoice_credito",
+  ] as const);
+  if (!type.ok) errors.set("type", type.error);
+
+  // Credit terms are read as a number of days, the way they are agreed
+  // ("a 30 días"), and the date is derived.
+  let creditDays = DEFAULT_CREDIT_DAYS;
+  const creditRaw = field(formData, "creditDays");
+  if (creditRaw !== "") {
+    const parsed = Number(creditRaw);
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > MAX_CREDIT_DAYS) {
+      errors.set("creditDays", "invalid");
+    } else {
+      creditDays = parsed;
+    }
+  }
+
+  if (!asQuote.ok) {
+    // The quote parser owns customer, currency, dates and lines; merge both
+    // sets so the form is fixed in one pass.
+    return { ok: false, fieldErrors: { ...asQuote.fieldErrors, ...errors.all } };
+  }
+  if (errors.any) return { ok: false, fieldErrors: errors.all };
+  if (!type.ok) throw new Error("unreachable");
+
+  return {
+    ok: true,
+    values: {
+      type: type.value,
+      customerId: asQuote.values.customerId,
+      docLocale: asQuote.values.docLocale,
+      currency: asQuote.values.currency,
+      issueDate: asQuote.values.issueDate,
+      dueDate: requiresDueDate(type.value)
+        ? dueDateFrom(asQuote.values.issueDate, creditDays)
+        : null,
+      notes: asQuote.values.notes,
+      lines: asQuote.values.lines,
+    },
+  };
+}
+
+/** Credit days a stored invoice was written with, for the edit form. */
+export function creditDaysBetween(issueDate: string, dueDate: string): number {
+  return validityDaysBetween(issueDate, dueDate);
 }

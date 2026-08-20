@@ -67,6 +67,21 @@ const QUOTE_TRANSITIONS: Record<string, readonly DocumentStatus[]> = {
   rechazado: [],
 };
 
+/**
+ * Invoices and credit notes. Issuing is the one move PR-10 makes: a draft
+ * becomes `pendiente` the moment it takes a number. Everything after that is
+ * derived from payments (`parcial`, `pagada`, `vencida`) or from a credit note
+ * (`anulada`), which is PR-11's table — a person never types those in.
+ */
+const INVOICE_TRANSITIONS: Record<string, readonly DocumentStatus[]> = {
+  borrador: ["pendiente"],
+  pendiente: [],
+  parcial: [],
+  pagada: [],
+  vencida: [],
+  anulada: [],
+};
+
 export function canTransition(
   type: DocumentType,
   from: DocumentStatus,
@@ -74,9 +89,9 @@ export function canTransition(
 ): boolean {
   if (!isStatusAllowed(type, from) || !isStatusAllowed(type, to)) return false;
   if (from === to) return false;
-  if (!isQuote(type)) return false; // Invoice transitions arrive with PR-10/PR-11.
 
-  return (QUOTE_TRANSITIONS[from] ?? []).includes(to);
+  const table = isQuote(type) ? QUOTE_TRANSITIONS : INVOICE_TRANSITIONS;
+  return (table[from] ?? []).includes(to);
 }
 
 /**
@@ -133,4 +148,80 @@ export function effectiveQuoteStatus(
   if (status !== "borrador" && status !== "enviado") return status;
   if (!validUntil) return status;
   return daysOfValidityLeft(validUntil, today) < 0 ? "vencido" : status;
+}
+
+/* -------------------------------------------------------------------------- */
+/* invoices                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/** Days a factura a crédito is given by default. */
+export const DEFAULT_CREDIT_DAYS = 30;
+
+/** A document that has taken a number is issued, and issued is forever. */
+export function isIssued(document: {
+  number?: string | null;
+  issuedAt?: Date | null;
+}): boolean {
+  return Boolean(document.number) || Boolean(document.issuedAt);
+}
+
+/**
+ * **The immutability rule** (guardrail 4). An issued invoice or credit note is
+ * never edited and never deleted — a correction is a new credit note. A draft,
+ * which has no number and has been shown to nobody, is ordinary editable data.
+ *
+ * This function is the single place that answer comes from; server actions
+ * call it, and hiding the form is only the UX half.
+ */
+export function isDocumentEditable(document: {
+  type: DocumentType;
+  status: DocumentStatus;
+  number?: string | null;
+  issuedAt?: Date | null;
+}): boolean {
+  if (isQuote(document.type)) return isQuoteEditable(document.status);
+  if (isIssued(document)) return false;
+  return document.status === "borrador";
+}
+
+/** Only a draft can be issued, and only once. */
+export function isIssuable(document: {
+  type: DocumentType;
+  status: DocumentStatus;
+  number?: string | null;
+  issuedAt?: Date | null;
+}): boolean {
+  if (isQuote(document.type)) return false;
+  if (isIssued(document)) return false;
+  return document.status === "borrador";
+}
+
+/** A factura a crédito carries a due date; a contado one is due on issue. */
+export function requiresDueDate(type: DocumentType): boolean {
+  return type === "invoice_credito";
+}
+
+/** `yyyy-mm-dd` this many days after the issue date. */
+export function dueDateFrom(issueDate: string, days: number): string {
+  return validUntilFrom(issueDate, days);
+}
+
+/** Days until a credit invoice falls due; negative once overdue. */
+export function daysUntilDue(dueDate: string, today: string): number {
+  return daysBetween(today, dueDate);
+}
+
+/**
+ * Is an unpaid invoice overdue on this date? Payment state is PR-11's job —
+ * this answers only the calendar half, and never overrides a paid or voided
+ * invoice.
+ */
+export function isOverdue(
+  status: DocumentStatus,
+  dueDate: string | null,
+  today: string,
+): boolean {
+  if (status !== "pendiente" && status !== "parcial") return false;
+  if (!dueDate) return false;
+  return daysUntilDue(dueDate, today) < 0;
 }
