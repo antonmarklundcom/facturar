@@ -158,3 +158,6 @@ next-env.d.ts
 
 # test coverage
 /coverage
+
+# local scratch space for one-off verification scripts
+/.scratch/
