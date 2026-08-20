@@ -23,7 +23,7 @@ Relevant local skills for the build chats: `paraguay-business-apps`, `nodejs-mys
 | 9 | Delivery | WhatsApp-first (wa.me deeplink + token URL) + email |
 | 10 | Email | Resend (separate free team for this project's domain) |
 | 11 | Dark mode | Yes, day one (token-based theming; PDFs always light) |
-| 12 | CI gate | ESLint + typecheck + `next build` + Vitest; unit tests mandatory for money/RUC/IVA/numbering |
+| 12 | CI gate | ESLint + typecheck + `next build` + Vitest; unit tests mandatory for money/RUC/IVA/numbering. **No GitHub Actions in this repo** — enforced locally by husky `pre-push`, with a `pre-commit` hook that refuses any staged workflow file |
 | 13 | Builder model | Opus 5 for all PRs |
 | 14 | Audit | Full `activity_log` + `updated_by`/`updated_at` |
 | 15 | Deploy | Early — right after the foundation phase (PR-6) |
@@ -44,8 +44,9 @@ portal with login, full CRM pipeline, Swedish market profile.
 ### PR-1 Scaffold + CI
 create-next-app (App Router, TS, Tailwind), drizzle-orm/mysql2/drizzle-kit/tsx, `drizzle.config.ts`,
 `src/db/index.ts` (pool, connectionLimit 8, timezone "Z"), `.env.example` with comments,
-next-intl wired with `es` + `en` catalogs, design tokens (CSS variables, light + dark),
-GitHub Actions workflow: lint + typecheck + build + vitest.
+next-intl wired with `es` + `en` catalogs, design tokens (CSS variables, light + dark).
+**No GitHub Actions** (decision 12) — the gate is husky `pre-push` running lint + typecheck +
+build + vitest, plus a `pre-commit` hook that refuses any staged `.github/workflows/` file.
 **Depends:** — · **Accept:** CI green on the PR itself; `npm run dev` renders a placeholder page in es and en.
 
 ### PR-2 Database schema + migrations
@@ -147,12 +148,12 @@ Apply `web-design-system`; no pricing page in v1. Must not pull the authenticate
 
 | PR | Title | Status |
 |----|-------|--------|
-| 1 | Scaffold + CI | pending |
-| 2 | Schema | pending |
-| 3 | Auth + roles | pending |
-| 4 | Domain utils | pending |
-| 5 | App shell | pending |
-| 6 | Deploy | pending |
+| 1 | Scaffold + CI | **merged** |
+| 2 | Schema | **merged** |
+| 3 | Auth + roles | **merged** |
+| 4 | Domain utils | **merged** |
+| 5 | App shell | **merged** |
+| 6 | Deploy | deferred — awaiting Hostinger credentials |
 | 7 | Customers | pending |
 | 8 | Products | pending |
 | 9 | Quotes | pending |
@@ -162,6 +163,31 @@ Apply `web-design-system`; no pricing page in v1. Must not pull the authenticate
 | 13 | Dashboard + reports | pending |
 | 14 | Seed + polish | pending |
 | 15 | Landing page | pending |
+
+## Phase A notes (recorded 2026-08-20)
+
+Carried into later PRs rather than fixed in place:
+
+- **Login rate limiting** is not implemented. Worth adding before the first real tenant is live.
+- **`server-only`** on `lib/auth/users.ts`, `lib/auth/session.ts`, `lib/activity.ts` and
+  `domain/numbering.server.ts` means a plain `tsx` script cannot import them. PR-14's seed either
+  talks to `db` directly or that marker is relaxed on the pure data-access modules.
+- **`documents.status`** is one enum spanning quote and invoice states. PR-9/PR-10 need a
+  per-type guard so an invoice cannot land in `aceptado`.
+- **`updated_at`** is maintained by Drizzle's `$onUpdate`, not by MySQL. A raw SQL `UPDATE`
+  will not touch it.
+- **The gap-free numbering test** (`tests/domain/numbering.db.test.ts`) needs a real MySQL and is
+  skipped unless `TEST_DATABASE_URL` is set. Run it before PR-10 ships.
+- **`zod`** is a dependency but is not yet used; it is there for the shared validation layer
+  PR-7/PR-8 will need.
+- **WhatsApp normalisation** (guardrail 7) lands in PR-7, not PR-4.
+- **Timbrados are deactivated, never deleted** — they are a legal record.
+- **Migrations were verified against MariaDB 10.11**, the engine available in the build
+  environment. Re-run `db:migrate` against the real Hostinger MySQL in PR-6.
+- **`next/font/google`** fetches at build time, so the Hostinger build box needs network access.
+- **npm audit** reports advisories in transitive dev tooling (`postcss`/`sharp` under `next@15`,
+  `esbuild` under `drizzle-kit`). The only offered fix is `next@16`, which contradicts
+  ARCHITECTURE.md; left on 15 deliberately.
 
 ## v1.1 backlog (decided, deliberately not in v1)
 
