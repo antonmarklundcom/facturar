@@ -156,7 +156,7 @@ Apply `web-design-system`; no pricing page in v1. Must not pull the authenticate
 | 6 | Deploy | deferred — awaiting Hostinger credentials |
 | 7 | Customers | **merged** |
 | 8 | Products | **merged** |
-| 9 | Quotes | pending |
+| 9 | Quotes | **merged** |
 | 10 | Invoices | pending |
 | 11 | Credit notes + payments | pending |
 | 12 | Send flows | pending |
@@ -212,6 +212,37 @@ Carried into later PRs rather than fixed in place:
   with a few hundred customers; revisit if a tenant ever passes a few thousand.
 - **No customer/product picker component yet.** PR-9 needs one for the line editor; build
   it there as a shared component rather than inline, since PR-10 and PR-11 need it too.
+
+## PR-9 notes (recorded 2026-08-20)
+
+- **PDFs render with `@react-pdf/renderer` and the built-in Helvetica**, so no font file
+  and no network fetch at render time. The standard PDF fonts encode WinAnsi only, which
+  has **no `₲` (U+20B2)** — documents print `Gs. 1.500.000` while the app UI keeps `₲`.
+  A test pins this. WinAnsi also silently drops an em dash (`—`) typed into a line
+  description; if that matters, register a TTF in a later PR.
+- **The tenant logo is fetched server-side into a data URI** (3 s timeout, PNG/JPEG, 1 MB
+  cap) rather than handed to the renderer as a URL — a slow logo host must never take a
+  document down. A failed fetch just means no logo.
+- **`vitest.config.ts` now sets `esbuild.jsx: "automatic"`.** `tsconfig.json` says
+  `preserve` (Next's own setting), which esbuild reads as the classic runtime, so any
+  `.tsx` imported by a test rendered as nothing instead of failing loudly. Needed by any
+  future component test, not only the PDF one.
+- **Quote status is derived on read, not by a cron.** `effectiveQuoteStatus()` reports a
+  quote past its validity date as `vencido`; the stored status only changes when a person
+  acts. PR-13's dashboard should use the same function rather than querying for `vencido`.
+- **Conversion produces a *draft* invoice with no number.** Numbering stays exclusively in
+  the PR-4 generator at issue time (guardrail 6). PR-10 must pick the draft up from
+  `documents.related_document_id` and add `/admin/facturas` — the quote detail page names
+  the draft by id today because that route does not exist yet.
+- **`documents.status` is now guarded per type** in `src/domain/documents.ts`, closing the
+  Phase A gap: an invoice can never be written into `aceptado`, and invoice transitions
+  are deliberately unimplemented until PR-10/PR-11 fill in their table.
+- **Buyer tokens** are 24 random bytes base64url (32 chars), shape-checked before they
+  reach a query, and both buyer routes send `no-store` plus `noindex`.
+- **Still not verified against a live database.** No MySQL in the build container, so the
+  transactional writes (`insertQuote`, `replaceQuote`, `convertQuoteToInvoice`) are typed
+  and reviewed but not executed. Run them, plus `tests/domain/numbering.db.test.ts`, on
+  the first real database — PR-6 or the start of PR-10, whichever comes first.
 
 ## v1.1 backlog (decided, deliberately not in v1)
 
