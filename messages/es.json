@@ -255,5 +255,80 @@
       "out_of_range": "Tiene que estar dentro del rango autorizado.",
       "already_issued": "No podés achicar el rango por debajo de los números ya emitidos."
     }
+  },
+  "customers": {
+    "eyebrow": "Clientes",
+    "title": "Clientes",
+    "intro": "Tu agenda de clientes. El RUC y el WhatsApp que cargás acá son los que salen en cada documento.",
+    "search": "Buscar",
+    "searchPlaceholder": "Nombre, RUC o WhatsApp",
+    "showInactive": "Mostrar inactivos",
+    "actions": "Acciones",
+    "name": "Nombre o razón social",
+    "ruc": "RUC",
+    "rucHint": "Con dígito verificador, por ejemplo 80012345-0.",
+    "rucOptionalHint": "Opcional para consumidor final.",
+    "noRuc": "Sin RUC — consumidor final",
+    "consumidorFinal": "Consumidor final (sin RUC)",
+    "consumidorFinalShort": "Consumidor final",
+    "whatsapp": "WhatsApp",
+    "whatsappHint": "Escribilo como quieras: 0981 123456 o +595 981 123456.",
+    "openWhatsapp": "Abrir WhatsApp",
+    "email": "Correo electrónico",
+    "address": "Dirección",
+    "docLocale": "Idioma de los documentos",
+    "docLocaleHint": "En qué idioma se emiten los presupuestos y las facturas de este cliente.",
+    "notes": "Notas internas",
+    "status": "Estado",
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "updatedAt": "Actualizado el {date}",
+    "view": "Ver",
+    "edit": "Editar",
+    "editTitle": "Datos del cliente",
+    "detailsTitle": "Datos del cliente",
+    "backToList": "Volver a clientes",
+    "create": "Agregá el cliente",
+    "createTitle": "Nuevo cliente",
+    "createHint": "Con el nombre y el RUC ya podés emitirle un presupuesto.",
+    "save": "Guardar",
+    "saving": "Guardando…",
+    "deactivate": "Desactivar",
+    "restore": "Reactivar",
+    "deactivateHint": "Los clientes no se borran: quedan en las facturas ya emitidas. Desactivarlo lo saca de la lista.",
+    "readOnly": "Tu rol te permite ver los clientes, pero no modificarlos.",
+    "waGreeting": "Hola {name}, te escribimos de {company}.",
+    "waFallbackCompany": "nuestra empresa",
+    "locales": {
+      "es": "Español",
+      "en": "Inglés"
+    },
+    "empty": {
+      "title": "Todavía no cargaste ningún cliente",
+      "body": "Agregá el primero con su nombre y su RUC. Después vas a poder emitirle presupuestos y facturas."
+    },
+    "noResults": {
+      "title": "Ningún cliente coincide con la búsqueda",
+      "body": "Probá con parte del nombre, con el RUC sin el dígito verificador, o mostrá también los inactivos."
+    },
+    "messages": {
+      "created": "Cliente agregado.",
+      "updated": "Cliente actualizado.",
+      "deactivated": "Cliente desactivado.",
+      "restored": "Cliente reactivado."
+    },
+    "errors": {
+      "invalid": "Revisá los datos marcados.",
+      "required": "Este dato es obligatorio.",
+      "notFound": "No encontramos ese cliente.",
+      "too_long": "Es demasiado largo.",
+      "empty": "Este dato es obligatorio.",
+      "malformed": "No parece un número válido.",
+      "too_short": "Faltan dígitos.",
+      "missing_dv": "Falta el dígito verificador.",
+      "wrong_dv": "El dígito verificador no coincide con el RUC.",
+      "wrong_country": "Solo aceptamos números de Paraguay (+595).",
+      "not_mobile": "Tiene que ser un celular, no una línea baja."
+    }
   }
 }
