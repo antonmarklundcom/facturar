@@ -23,7 +23,12 @@ export function LoginForm({ next }: { next?: string }) {
   const [state, formAction] = useActionState<FormState, FormData>(loginAction, IDLE);
 
   return (
-    <form action={formAction} className="flex flex-col gap-[var(--s-5)]" noValidate>
+    <form
+      key={state.attempt ?? 0}
+      action={formAction}
+      className="flex flex-col gap-[var(--s-5)]"
+      noValidate
+    >
       {next ? <input type="hidden" name="next" value={next} /> : null}
 
       {state.status === "error" && state.messageKey ? (
@@ -39,6 +44,7 @@ export function LoginForm({ next }: { next?: string }) {
           id="email"
           name="email"
           type="email"
+          defaultValue={state.values?.email ?? ""}
           autoComplete="username"
           inputMode="email"
           autoCapitalize="none"

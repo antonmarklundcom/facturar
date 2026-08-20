@@ -34,17 +34,21 @@
   "admin": {
     "logout": "Salir",
     "nav": {
-      "users": "Usuarios"
+      "dashboard": "Panel",
+      "customers": "Clientes",
+      "products": "Productos",
+      "quotes": "Presupuestos",
+      "invoices": "Facturas",
+      "payments": "Pagos",
+      "reports": "Informes",
+      "settings": "Ajustes",
+      "users": "Usuarios",
+      "upcoming": "Próximamente"
     },
     "roles": {
       "admin": "Administrador",
       "employee": "Empleado",
       "viewer": "Solo lectura"
-    },
-    "dashboard": {
-      "eyebrow": "Panel",
-      "greeting": "Hola, {name}",
-      "body": "Acá va a estar lo que necesita tu atención hoy: facturas vencidas, presupuestos por seguir y avisos de timbrado. Llega en el PR-5."
     }
   },
   "changePassword": {
@@ -112,6 +116,144 @@
       "too_short": "Es demasiado corta.",
       "too_common": "Es demasiado fácil de adivinar.",
       "unchanged": "Elegí una contraseña distinta a la actual."
+    }
+  },
+  "preferences": {
+    "language": "Idioma",
+    "theme": "Tema",
+    "locales": {
+      "es": "Español",
+      "en": "Inglés"
+    },
+    "themes": {
+      "system": "Sistema",
+      "light": "Claro",
+      "dark": "Oscuro"
+    }
+  },
+  "dashboard": {
+    "eyebrow": "Panel",
+    "greeting": "Hola, {name}",
+    "intro": "Acá vas a ver lo que necesita tu atención hoy: facturas vencidas, presupuestos por seguir y avisos de timbrado.",
+    "tiles": {
+      "today": "Para hoy",
+      "nothingYet": "Nada pendiente",
+      "todayHint": "Las facturas vencidas y los presupuestos por seguir aparecen acá cuando empieces a emitir documentos.",
+      "outstanding": "Por cobrar",
+      "outstandingHint": "Saldo pendiente de tus facturas emitidas."
+    },
+    "empty": {
+      "title": "Todavía no hay documentos",
+      "body": "Cuando cargues clientes y emitas presupuestos o facturas, el movimiento del día se muestra en esta pantalla."
+    },
+    "setup": {
+      "title": "Cargá tu timbrado para poder facturar",
+      "body": "Sin un timbrado vigente no se puede emitir ninguna factura. Cargá el número, la vigencia y el rango autorizado.",
+      "cta": "Cargar timbrado"
+    }
+  },
+  "settings": {
+    "eyebrow": "Ajustes",
+    "title": "Datos de la empresa",
+    "intro": "Estos datos se imprimen en cada presupuesto y factura que emitas.",
+    "company": "Empresa",
+    "companyHint": "Nombre, RUC y datos de contacto que salen en tus documentos.",
+    "companyName": "Razón social",
+    "ruc": "RUC",
+    "rucHint": "Con dígito verificador, por ejemplo 80012345-0.",
+    "defaultCurrency": "Moneda por defecto",
+    "defaultCurrencyHint": "Se usa al crear un documento nuevo; podés cambiarla documento por documento.",
+    "currencies": {
+      "PYG": "Guaraníes (₲)",
+      "USD": "Dólares (US$)"
+    },
+    "address": "Dirección",
+    "phone": "Teléfono",
+    "email": "Correo electrónico",
+    "logoUrl": "Logo (URL)",
+    "logoUrlHint": "Dirección https:// de tu logo. La carga de archivos llega cuando esté el almacenamiento.",
+    "save": "Guardar cambios",
+    "saving": "Guardando…",
+    "links": {
+      "timbrados": "Timbrados",
+      "timbradosBody": "Número, vigencia y rango autorizado para emitir facturas.",
+      "users": "Usuarios",
+      "usersBody": "Tu equipo y qué puede hacer cada uno."
+    },
+    "messages": {
+      "saved": "Datos guardados."
+    },
+    "errors": {
+      "invalid": "Revisá los datos cargados.",
+      "required": "Completá este campo.",
+      "empty": "Completá este campo.",
+      "malformed": "El formato no es válido.",
+      "too_short": "Es demasiado corto.",
+      "too_long": "Es demasiado largo.",
+      "missing_dv": "Falta el dígito verificador.",
+      "wrong_dv": "El dígito verificador no corresponde."
+    }
+  },
+  "timbrados": {
+    "eyebrow": "Ajustes",
+    "title": "Timbrados",
+    "intro": "El timbrado autoriza tu numeración. Sin uno vigente y con rango disponible, no se puede emitir una factura.",
+    "backToSettings": "Volver a ajustes",
+    "number": "Número de timbrado",
+    "nextNumber": "Próximo número",
+    "validFrom": "Vigente desde",
+    "validTo": "Vigente hasta",
+    "establishment": "Establecimiento",
+    "expeditionPoint": "Punto de expedición",
+    "rangeStart": "Desde el número",
+    "rangeEnd": "Hasta el número",
+    "startAt": "Empezar a numerar en",
+    "startAtHint": "Dejalo vacío para empezar desde el inicio del rango. Solo se define al cargar el timbrado.",
+    "daysRemaining": "Días restantes",
+    "numbersRemaining": "Números restantes",
+    "rangeUsed": "{percent}% del rango usado",
+    "expired": "Vencido",
+    "active": "Activo",
+    "edit": "Editar timbrado",
+    "create": "Cargar timbrado",
+    "createTitle": "Nuevo timbrado",
+    "createHint": "Copiá los datos tal cual figuran en la autorización de la DNIT.",
+    "save": "Guardar",
+    "saving": "Guardando…",
+    "validUntil": "vence el {date}",
+    "label": "Timbrado {number} · {establishment}-{point}",
+    "empty": {
+      "title": "Todavía no cargaste ningún timbrado",
+      "body": "Cargá el número, la vigencia y el rango autorizado para poder emitir facturas."
+    },
+    "status": {
+      "ok": "Vigente"
+    },
+    "alerts": {
+      "blocked": "No podés emitir facturas con este timbrado",
+      "attention": "Tu timbrado necesita atención"
+    },
+    "blockers": {
+      "expired": "Vencido",
+      "not_yet_valid": "Todavía no vigente",
+      "range_exhausted": "Rango agotado",
+      "sequence_out_of_range": "Numeración fuera del rango autorizado",
+      "inactive": "Inactivo"
+    },
+    "warnings": {
+      "expiring_soon": "Vence en {days} días",
+      "range_low": "Quedan {remaining} números"
+    },
+    "messages": {
+      "created": "Timbrado cargado.",
+      "updated": "Cambios guardados."
+    },
+    "errors": {
+      "invalid": "Revisá los datos cargados.",
+      "notFound": "No encontramos ese timbrado.",
+      "before_start": "Tiene que ser posterior al inicio.",
+      "out_of_range": "Tiene que estar dentro del rango autorizado.",
+      "already_issued": "No podés achicar el rango por debajo de los números ya emitidos."
     }
   }
 }

@@ -34,17 +34,21 @@
   "admin": {
     "logout": "Sign out",
     "nav": {
-      "users": "Users"
+      "dashboard": "Dashboard",
+      "customers": "Customers",
+      "products": "Products",
+      "quotes": "Quotes",
+      "invoices": "Invoices",
+      "payments": "Payments",
+      "reports": "Reports",
+      "settings": "Settings",
+      "users": "Users",
+      "upcoming": "Coming soon"
     },
     "roles": {
       "admin": "Administrator",
       "employee": "Employee",
       "viewer": "Read-only"
-    },
-    "dashboard": {
-      "eyebrow": "Dashboard",
-      "greeting": "Hello, {name}",
-      "body": "This is where what needs your attention today will live: overdue invoices, quotes to follow up and timbrado warnings. It lands in PR-5."
     }
   },
   "changePassword": {
@@ -112,6 +116,144 @@
       "too_short": "It is too short.",
       "too_common": "It is too easy to guess.",
       "unchanged": "Choose a password different from the current one."
+    }
+  },
+  "preferences": {
+    "language": "Language",
+    "theme": "Theme",
+    "locales": {
+      "es": "Spanish",
+      "en": "English"
+    },
+    "themes": {
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark"
+    }
+  },
+  "dashboard": {
+    "eyebrow": "Dashboard",
+    "greeting": "Hello, {name}",
+    "intro": "This is where what needs your attention today lives: overdue invoices, quotes to follow up and timbrado warnings.",
+    "tiles": {
+      "today": "For today",
+      "nothingYet": "Nothing pending",
+      "todayHint": "Overdue invoices and quotes awaiting follow-up appear here once you start issuing documents.",
+      "outstanding": "Outstanding",
+      "outstandingHint": "Unpaid balance across your issued invoices."
+    },
+    "empty": {
+      "title": "No documents yet",
+      "body": "Once you add customers and issue quotes or invoices, the day's activity shows up on this screen."
+    },
+    "setup": {
+      "title": "Add your timbrado before you invoice",
+      "body": "No invoice can be issued without a valid timbrado. Add its number, validity window and authorised range.",
+      "cta": "Add timbrado"
+    }
+  },
+  "settings": {
+    "eyebrow": "Settings",
+    "title": "Company details",
+    "intro": "These details are printed on every quote and invoice you issue.",
+    "company": "Company",
+    "companyHint": "Name, RUC and contact details that appear on your documents.",
+    "companyName": "Legal name",
+    "ruc": "RUC",
+    "rucHint": "With its check digit, for example 80012345-0.",
+    "defaultCurrency": "Default currency",
+    "defaultCurrencyHint": "Used when creating a new document; you can change it per document.",
+    "currencies": {
+      "PYG": "Guaraníes (₲)",
+      "USD": "Dollars (US$)"
+    },
+    "address": "Address",
+    "phone": "Phone",
+    "email": "Email address",
+    "logoUrl": "Logo (URL)",
+    "logoUrlHint": "An https:// address for your logo. File upload arrives once storage is in place.",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "links": {
+      "timbrados": "Timbrados",
+      "timbradosBody": "Number, validity window and authorised range for issuing invoices.",
+      "users": "Users",
+      "usersBody": "Your team and what each person can do."
+    },
+    "messages": {
+      "saved": "Details saved."
+    },
+    "errors": {
+      "invalid": "Check the details you entered.",
+      "required": "This field is required.",
+      "empty": "This field is required.",
+      "malformed": "That format is not valid.",
+      "too_short": "It is too short.",
+      "too_long": "It is too long.",
+      "missing_dv": "The check digit is missing.",
+      "wrong_dv": "The check digit does not match."
+    }
+  },
+  "timbrados": {
+    "eyebrow": "Settings",
+    "title": "Timbrados",
+    "intro": "The timbrado authorises your numbering. Without a valid one with numbers left, no invoice can be issued.",
+    "backToSettings": "Back to settings",
+    "number": "Timbrado number",
+    "nextNumber": "Next number",
+    "validFrom": "Valid from",
+    "validTo": "Valid until",
+    "establishment": "Establishment",
+    "expeditionPoint": "Expedition point",
+    "rangeStart": "From number",
+    "rangeEnd": "To number",
+    "startAt": "Start numbering at",
+    "startAtHint": "Leave empty to start at the beginning of the range. Set only when the timbrado is added.",
+    "daysRemaining": "Days remaining",
+    "numbersRemaining": "Numbers remaining",
+    "rangeUsed": "{percent}% of the range used",
+    "expired": "Expired",
+    "active": "Active",
+    "edit": "Edit timbrado",
+    "create": "Add timbrado",
+    "createTitle": "New timbrado",
+    "createHint": "Copy the details exactly as they appear on the DNIT authorisation.",
+    "save": "Save",
+    "saving": "Saving…",
+    "validUntil": "expires on {date}",
+    "label": "Timbrado {number} · {establishment}-{point}",
+    "empty": {
+      "title": "No timbrado added yet",
+      "body": "Add its number, validity window and authorised range so you can issue invoices."
+    },
+    "status": {
+      "ok": "Valid"
+    },
+    "alerts": {
+      "blocked": "You cannot issue invoices with this timbrado",
+      "attention": "Your timbrado needs attention"
+    },
+    "blockers": {
+      "expired": "Expired",
+      "not_yet_valid": "Not yet valid",
+      "range_exhausted": "Range exhausted",
+      "sequence_out_of_range": "Numbering outside the authorised range",
+      "inactive": "Inactive"
+    },
+    "warnings": {
+      "expiring_soon": "Expires in {days} days",
+      "range_low": "{remaining} numbers left"
+    },
+    "messages": {
+      "created": "Timbrado added.",
+      "updated": "Changes saved."
+    },
+    "errors": {
+      "invalid": "Check the details you entered.",
+      "notFound": "We could not find that timbrado.",
+      "before_start": "It must come after the start.",
+      "out_of_range": "It must fall inside the authorised range.",
+      "already_issued": "You cannot narrow the range below numbers already issued."
     }
   }
 }

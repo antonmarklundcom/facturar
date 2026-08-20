@@ -41,7 +41,12 @@ export function CreateUserForm({ minLength }: { minLength: number }) {
   const fieldError = useFieldError(state);
 
   return (
-    <form action={formAction} className="flex flex-col gap-[var(--s-5)]" noValidate>
+    <form
+      key={state.attempt ?? 0}
+      action={formAction}
+      className="flex flex-col gap-[var(--s-5)]"
+      noValidate
+    >
       {state.status === "error" && !state.fieldErrors ? (
         <FormMessage tone="error">{t(`errors.${state.messageKey}`)}</FormMessage>
       ) : null}
@@ -50,7 +55,13 @@ export function CreateUserForm({ minLength }: { minLength: number }) {
       ) : null}
 
       <Field label={t("name")} htmlFor="new-name" error={fieldError("name")}>
-        <input id="new-name" name="name" required className={inputClass} />
+        <input
+          id="new-name"
+          name="name"
+          defaultValue={state.values?.name ?? ""}
+          required
+          className={inputClass}
+        />
       </Field>
 
       <Field label={t("email")} htmlFor="new-email" error={fieldError("email")}>
@@ -58,6 +69,7 @@ export function CreateUserForm({ minLength }: { minLength: number }) {
           id="new-email"
           name="email"
           type="email"
+          defaultValue={state.values?.email ?? ""}
           autoCapitalize="none"
           spellCheck={false}
           required
@@ -66,7 +78,12 @@ export function CreateUserForm({ minLength }: { minLength: number }) {
       </Field>
 
       <Field label={t("role")} htmlFor="new-role" error={fieldError("role")}>
-        <select id="new-role" name="role" defaultValue="employee" className={inputClass}>
+        <select
+          id="new-role"
+          name="role"
+          defaultValue={state.values?.role ?? "employee"}
+          className={inputClass}
+        >
           {ROLES.map((role) => (
             <option key={role} value={role}>
               {t(`roles.${role}`)}
@@ -76,7 +93,12 @@ export function CreateUserForm({ minLength }: { minLength: number }) {
       </Field>
 
       <Field label={t("uiLocale")} htmlFor="new-locale">
-        <select id="new-locale" name="uiLocale" defaultValue="es" className={inputClass}>
+        <select
+          id="new-locale"
+          name="uiLocale"
+          defaultValue={state.values?.uiLocale ?? "es"}
+          className={inputClass}
+        >
           <option value="es">{t("locales.es")}</option>
           <option value="en">{t("locales.en")}</option>
         </select>
@@ -113,14 +135,18 @@ export function EditUserForm({
   const [state, formAction] = useActionState<FormState, FormData>(updateUserAction, IDLE);
 
   return (
-    <form action={formAction} className="flex flex-wrap items-end gap-[var(--s-3)]">
+    <form
+      key={state.attempt ?? 0}
+      action={formAction}
+      className="flex flex-wrap items-end gap-[var(--s-3)]"
+    >
       <input type="hidden" name="userId" value={user.id} />
 
       <label className="flex flex-col gap-[var(--s-1)]">
         <span className="text-[length:var(--t--1)] text-ink-55">{t("name")}</span>
         <input
           name="name"
-          defaultValue={user.name}
+          defaultValue={state.values?.name ?? user.name}
           required
           className={`${inputClass} w-56`}
         />
@@ -128,7 +154,11 @@ export function EditUserForm({
 
       <label className="flex flex-col gap-[var(--s-1)]">
         <span className="text-[length:var(--t--1)] text-ink-55">{t("role")}</span>
-        <select name="role" defaultValue={user.role} className={`${inputClass} w-44`}>
+        <select
+          name="role"
+          defaultValue={state.values?.role ?? user.role}
+          className={`${inputClass} w-44`}
+        >
           {ROLES.map((role) => (
             <option key={role} value={role}>
               {t(`roles.${role}`)}
