@@ -42,11 +42,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const items: NavItem[] = [
     { href: "/admin", label: t("nav.dashboard"), icon: <DashboardIcon /> },
     { href: "/admin/clientes", label: t("nav.customers"), icon: <CustomersIcon /> },
+    { href: "/admin/productos", label: t("nav.products"), icon: <ProductsIcon /> },
   ];
 
-  // PR-8 onward add their own entries here as the routes appear.
+  // PR-9 onward add their own entries here as the routes appear.
   const upcoming: { label: string; icon: React.ReactNode }[] = [
-    { label: t("nav.products"), icon: <ProductsIcon /> },
     { label: t("nav.quotes"), icon: <QuotesIcon /> },
     { label: t("nav.invoices"), icon: <InvoicesIcon /> },
     { label: t("nav.payments"), icon: <PaymentsIcon /> },

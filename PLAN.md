@@ -154,8 +154,8 @@ Apply `web-design-system`; no pricing page in v1. Must not pull the authenticate
 | 4 | Domain utils | **merged** |
 | 5 | App shell | **merged** |
 | 6 | Deploy | deferred — awaiting Hostinger credentials |
-| 7 | Customers | pending |
-| 8 | Products | pending |
+| 7 | Customers | **merged** |
+| 8 | Products | **merged** |
 | 9 | Quotes | pending |
 | 10 | Invoices | pending |
 | 11 | Credit notes + payments | pending |
@@ -188,6 +188,30 @@ Carried into later PRs rather than fixed in place:
 - **npm audit** reports advisories in transitive dev tooling (`postcss`/`sharp` under `next@15`,
   `esbuild` under `drizzle-kit`). The only offered fix is `next@16`, which contradicts
   ARCHITECTURE.md; left on 15 deliberately.
+
+## Phase B notes (recorded 2026-08-20, after PR-7 / PR-8)
+
+- **`zod` was removed.** It sat unused in `package.json`, reserved for the shared
+  validation layer. What these forms need is a translation *key* per field rather than a
+  message string, which zod only reaches through a mapping layer the size of the module
+  that replaced it — `src/lib/validation.ts`. Money and RUC rules still live in
+  `src/domain`. Use `src/lib/validation.ts` for PR-9 onward rather than starting a second
+  idiom.
+- **WhatsApp normalisation** landed in `src/domain/whatsapp.ts` (guardrail 7): storage
+  shape `+5959XXXXXXXX`, `waMeLink()` for the deeplink, `formatWhatsapp()` for display.
+  Landlines are rejected on purpose — a `wa.me` link to one goes nowhere.
+- **Catalogue rows are deactivated, never deleted** — customers and products alike. Both
+  are referenced by documents, which are immutable once issued.
+- **Product prices are IVA-inclusive**, matching `document_lines`. PR-9's line editor
+  should copy `unit_amount`, `tax_rate`, `unit` and `description` onto the line as a
+  snapshot rather than joining to `products` at render time.
+- **Not verified against a live database.** This build container had no MySQL, so PR-7 and
+  PR-8 were checked by lint, typecheck, unit tests and `next build` only. The first real
+  run against MySQL 8 is still PR-6.
+- **Search is `LIKE '%term%'` capped at 200 rows.** Fine for a demo tenant and for an SMB
+  with a few hundred customers; revisit if a tenant ever passes a few thousand.
+- **No customer/product picker component yet.** PR-9 needs one for the line editor; build
+  it there as a shared component rather than inline, since PR-10 and PR-11 need it too.
 
 ## v1.1 backlog (decided, deliberately not in v1)
 
