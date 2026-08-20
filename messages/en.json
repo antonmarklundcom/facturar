@@ -514,7 +514,8 @@
       "negative": "The price cannot be negative.",
       "too_large": "That amount is too large.",
       "positive": "Must be greater than zero."
-    }
+    },
+    "history": "History"
   },
   "documentPdf": {
     "quote": "Quote",
@@ -688,7 +689,8 @@
     },
     "paid": "Paid",
     "credited": "Credited",
-    "outstanding": "Outstanding"
+    "outstanding": "Outstanding",
+    "history": "History"
   },
   "payments": {
     "eyebrow": "Collections",
@@ -803,6 +805,39 @@
       "blocked_range_exhausted": "That timbrado has no authorised numbers left.",
       "blocked_sequence_out_of_range": "The numbering has fallen outside the authorised range.",
       "blocked_inactive": "That timbrado is deactivated."
+    }
+  },
+  "send": {
+    "sendEmailTo": "Email it to {email}",
+    "sending": "Sending…",
+    "emailDisabled": "Email sending is not configured yet. Use WhatsApp or the link.",
+    "noEmail": "This customer has no email address on file.",
+    "messages": {
+      "emailSent": "Email sent."
+    },
+    "errors": {
+      "invalid": "Something went wrong.",
+      "notFound": "That document could not be found.",
+      "noEmail": "This customer has no email address on file.",
+      "noLink": "This document has no public link.",
+      "noBaseUrl": "NEXT_PUBLIC_APP_URL is not set.",
+      "emailDisabled": "Email sending is not configured.",
+      "email_disabled": "Email sending is not configured.",
+      "email_rejected": "The provider rejected the message. Check the customer's address.",
+      "email_network": "The email provider could not be reached. Please try again."
+    }
+  },
+  "history": {
+    "empty": "Nothing has happened with this document yet.",
+    "actions": {
+      "created": "Created",
+      "updated": "Edited",
+      "issued": "Issued",
+      "sent_whatsapp": "Sent on WhatsApp",
+      "sent_email": "Sent by email",
+      "paid": "Payment recorded",
+      "credited": "Credit note issued",
+      "deleted": "Deleted"
     }
   }
 }

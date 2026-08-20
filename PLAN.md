@@ -159,7 +159,7 @@ Apply `web-design-system`; no pricing page in v1. Must not pull the authenticate
 | 9 | Quotes | **merged** |
 | 10 | Invoices | **merged** |
 | 11 | Credit notes + payments | **merged** |
-| 12 | Send flows | pending |
+| 12 | Send flows | **merged** |
 | 13 | Dashboard + reports | pending |
 | 14 | Seed + polish | pending |
 | 15 | Landing page | pending |
@@ -304,6 +304,30 @@ Carried into later PRs rather than fixed in place:
 - **Still not run against a live database.** The transactional paths (issue, credit-note
   issue, payment + status refresh) are typed, statically guarded and unit-tested at the
   domain level, but nothing in Phase B has executed SQL yet.
+
+## PR-12 notes (recorded 2026-08-20)
+
+- **Email is optional and stays optional.** With no `RESEND_API_KEY` the button is
+  replaced by a line of explanation and nothing is called; WhatsApp and the public link
+  carry the product on their own. Resend is called over its REST endpoint with `fetch`
+  rather than through the SDK — one documented request is less to maintain than a
+  dependency, and it keeps the disabled path trivial. PR-6 still needs the key and a
+  verified sender domain before email works live.
+- **`sent_whatsapp` means "handed to WhatsApp".** The message leaves from the user's own
+  WhatsApp via a `wa.me` deeplink (decision 9), so that is the only moment the app can
+  observe. The link stays a real anchor and the log is fired alongside it, never in its
+  way — a failed log must not cost the user the message.
+- **Sending a quote moves it to `enviado`**, through the domain's transition table, so a
+  re-send of an accepted quote does not rewind it.
+- **Email copy lives in `src/lib/email/templates.ts`, not in the next-intl catalogues.**
+  It is not UI: it needs a plain and an HTML form that must not drift apart, and keeping
+  them side by side is how that stays true. The customer's name is escaped into the HTML.
+- **The history panel reads `activity_log` directly** and prints only known detail keys —
+  the column is free-form JSON and rendering it wholesale would eventually put something
+  on screen that should not be. PR-13 extends the same log into the dashboard.
+- **Not verified against a live database or a real Resend account.** The provider call is
+  covered by tests with `fetch` stubbed (disabled, success, rejection, network failure,
+  and that the key never leaves the Authorization header).
 
 ## v1.1 backlog (decided, deliberately not in v1)
 
