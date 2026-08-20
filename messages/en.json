@@ -330,5 +330,84 @@
       "wrong_country": "Only Paraguayan numbers (+595) are accepted.",
       "not_mobile": "This must be a mobile number, not a landline."
     }
+  },
+  "products": {
+    "eyebrow": "Catalogue",
+    "title": "Products and services",
+    "intro": "Your price list. Anything stored here becomes a quote or invoice line in one click.",
+    "search": "Search",
+    "searchPlaceholder": "Name or description",
+    "showInactive": "Show inactive",
+    "actions": "Actions",
+    "name": "Name",
+    "description": "Description",
+    "descriptionHint": "Printed on the document line, under the name.",
+    "unit": "Unit",
+    "unitHint": "How it is charged: per unit, per hour, per m².",
+    "unitAmount": "Unit price",
+    "unitAmountHint": "The final price, IVA included, exactly as your price list shows it.",
+    "currency": "Currency",
+    "taxRate": "IVA",
+    "taxRateHint": "10% for most goods and services; 5% for basic foodstuffs and rent; exempt for what is not taxed.",
+    "perUnit": "per {unit}",
+    "ivaShort": "IVA {iva}",
+    "priceBreakdown": "Price",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "updatedAt": "Updated {date}",
+    "view": "View",
+    "edit": "Edit",
+    "editTitle": "Product details",
+    "detailsTitle": "Product details",
+    "backToList": "Back to catalogue",
+    "create": "Add product",
+    "createTitle": "New product or service",
+    "createHint": "Enter the price with IVA included, the way you quote it to a customer.",
+    "save": "Save",
+    "saving": "Saving…",
+    "deactivate": "Deactivate",
+    "restore": "Restore",
+    "deactivateHint": "Products are never deleted — they stay on the documents already issued. Deactivating just removes them from the catalogue.",
+    "readOnly": "Your role can view the catalogue but not change it.",
+    "currencies": {
+      "PYG": "Guaraníes (₲)",
+      "USD": "Dollars (US$)"
+    },
+    "units": {
+      "default": "unit",
+      "hour": "hour",
+      "day": "day",
+      "service": "service",
+      "kg": "kg",
+      "metre": "m",
+      "squareMetre": "m²"
+    },
+    "preview": {
+      "ivaIncluded": "IVA included: {iva}",
+      "exempt": "IVA exempt"
+    },
+    "empty": {
+      "title": "No products yet",
+      "body": "Add what you sell with its final price and IVA rate. You then pick it from a list when building a quote."
+    },
+    "noResults": {
+      "title": "No product matches that search",
+      "body": "Try part of the name or description, or include inactive products."
+    },
+    "messages": {
+      "created": "Product added.",
+      "updated": "Product updated.",
+      "deactivated": "Product deactivated.",
+      "restored": "Product restored."
+    },
+    "errors": {
+      "invalid": "Check the highlighted fields.",
+      "required": "This field is required.",
+      "notFound": "That product could not be found.",
+      "too_long": "That is too long.",
+      "negative": "The price cannot be negative.",
+      "too_large": "That price is too large."
+    }
   }
 }

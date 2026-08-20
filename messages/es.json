@@ -330,5 +330,84 @@
       "wrong_country": "Solo aceptamos números de Paraguay (+595).",
       "not_mobile": "Tiene que ser un celular, no una línea baja."
     }
+  },
+  "products": {
+    "eyebrow": "Catálogo",
+    "title": "Productos y servicios",
+    "intro": "Tu lista de precios. Lo que cargás acá se convierte en una línea de presupuesto o de factura con un clic.",
+    "search": "Buscar",
+    "searchPlaceholder": "Nombre o descripción",
+    "showInactive": "Mostrar inactivos",
+    "actions": "Acciones",
+    "name": "Nombre",
+    "description": "Descripción",
+    "descriptionHint": "Aparece en la línea del documento, debajo del nombre.",
+    "unit": "Unidad",
+    "unitHint": "Cómo se cobra: por unidad, por hora, por m².",
+    "unitAmount": "Precio unitario",
+    "unitAmountHint": "Precio final, con IVA incluido, como figura en tu lista.",
+    "currency": "Moneda",
+    "taxRate": "IVA",
+    "taxRateHint": "10 % para la mayoría de los bienes y servicios; 5 % para la canasta básica y alquileres; exenta para lo que no grava.",
+    "perUnit": "por {unit}",
+    "ivaShort": "IVA {iva}",
+    "priceBreakdown": "Precio",
+    "status": "Estado",
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "updatedAt": "Actualizado el {date}",
+    "view": "Ver",
+    "edit": "Editar",
+    "editTitle": "Datos del producto",
+    "detailsTitle": "Datos del producto",
+    "backToList": "Volver al catálogo",
+    "create": "Agregá el producto",
+    "createTitle": "Nuevo producto o servicio",
+    "createHint": "Cargá el precio con IVA incluido, tal como se lo decís al cliente.",
+    "save": "Guardar",
+    "saving": "Guardando…",
+    "deactivate": "Desactivar",
+    "restore": "Reactivar",
+    "deactivateHint": "Los productos no se borran: siguen figurando en los documentos ya emitidos. Desactivarlo lo saca del catálogo.",
+    "readOnly": "Tu rol te permite ver el catálogo, pero no modificarlo.",
+    "currencies": {
+      "PYG": "Guaraníes (₲)",
+      "USD": "Dólares (US$)"
+    },
+    "units": {
+      "default": "unidad",
+      "hour": "hora",
+      "day": "día",
+      "service": "servicio",
+      "kg": "kg",
+      "metre": "m",
+      "squareMetre": "m²"
+    },
+    "preview": {
+      "ivaIncluded": "IVA incluido: {iva}",
+      "exempt": "Exenta de IVA"
+    },
+    "empty": {
+      "title": "Todavía no cargaste ningún producto",
+      "body": "Agregá lo que vendés con su precio final y su IVA. Después lo elegís de una lista al armar un presupuesto."
+    },
+    "noResults": {
+      "title": "Ningún producto coincide con la búsqueda",
+      "body": "Probá con parte del nombre o de la descripción, o mostrá también los inactivos."
+    },
+    "messages": {
+      "created": "Producto agregado.",
+      "updated": "Producto actualizado.",
+      "deactivated": "Producto desactivado.",
+      "restored": "Producto reactivado."
+    },
+    "errors": {
+      "invalid": "Revisá los datos marcados.",
+      "required": "Este dato es obligatorio.",
+      "notFound": "No encontramos ese producto.",
+      "too_long": "Es demasiado largo.",
+      "negative": "El precio no puede ser negativo.",
+      "too_large": "Ese precio es demasiado grande."
+    }
   }
 }
