@@ -44,6 +44,18 @@ One-off scripts run through `tsx`, which does **not** auto-load `.env`:
 npx tsx --env-file=.env scripts/<file>.ts
 ```
 
+### Database-backed tests
+
+Most tests are pure. The gap-free numbering test needs a real MySQL and is
+**skipped** unless `TEST_DATABASE_URL` points at a migrated scratch database:
+
+```bash
+TEST_DATABASE_URL="mysql://user:pass@127.0.0.1:3306/facturar_test" npm test
+```
+
+Run it before anything that depends on invoice numbering ships. Vitest reports
+the skip explicitly, so a skipped run is visible rather than silent.
+
 ## Quality gate
 
 There is **no GitHub Actions CI in this repo, by design** (PLAN.md decision 12). The gate is local:
@@ -56,7 +68,10 @@ Hooks install themselves via the `prepare` script on `npm install`.
 ## Conventions
 
 - Money is **integer minor units** (`bigint`) plus a currency column. PYG has 0 decimals, USD 2.
-  Floats and `DECIMAL(x,2)` are banned.
+  Floats and `DECIMAL(x,2)` are banned. All money maths lives in `src/domain/` — never inline
+  arithmetic in a component or a route.
+- Invoice numbers come only from `allocateDocumentNumber()`, which is transactional and
+  row-locked. Never generate a number ad hoc.
 - Every table carries `tenant_id`; every query goes through `tenantScoped()`; every mutation
   calls `requireRole()`.
 - No hardcoded user-facing strings — next-intl keys only, added to **both** `messages/es.json`
