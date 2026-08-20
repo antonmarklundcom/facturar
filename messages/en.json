@@ -137,9 +137,9 @@
     "intro": "This is where what needs your attention today lives: overdue invoices, quotes to follow up and timbrado warnings.",
     "tiles": {
       "overdue": "Overdue and uncollected",
-      "overdueHint": "{count} overdue invoices.",
+      "overdueHint": "{count, plural, =0 {No overdue invoices.} one {# overdue invoice.} other {# overdue invoices.}}",
       "outstanding": "Outstanding",
-      "outstandingHint": "{count} open invoices."
+      "outstandingHint": "{count, plural, =0 {No open invoices.} one {# open invoice.} other {# open invoices.}}"
     },
     "empty": {
       "title": "Nothing urgent today",
@@ -160,7 +160,7 @@
     "quotes": {
       "title": "Quotes awaiting an answer",
       "all": "See all",
-      "daysLeft": "{days} days of validity left",
+      "daysLeft": "{days, plural, =0 {Expires today} one {# day of validity left} other {# days of validity left}}",
       "noExpiry": "No validity date",
       "status": {
         "borrador": "Draft",
@@ -870,7 +870,7 @@
       "thisYear": "This year"
     },
     "ivaTitle": "IVA liquidation · {currency}",
-    "documentsCounted": "{invoices} invoices · {creditNotes} credit notes",
+    "documentsCounted": "{invoices, plural, one {# invoice} other {# invoices}} · {creditNotes, plural, one {# credit note} other {# credit notes}}",
     "gravadas10": "Taxed at 10%",
     "gravadas5": "Taxed at 5%",
     "exentas": "Exempt",

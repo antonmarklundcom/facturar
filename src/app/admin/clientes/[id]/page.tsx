@@ -69,7 +69,7 @@ export default async function CustomerDetailPage({
       />
 
       <div className="grid gap-[var(--s-6)] lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-        <Card variant="raised">
+        <Card variant="raised" className="min-w-0">
           <SectionTitle>{mayWrite ? t("editTitle") : t("detailsTitle")}</SectionTitle>
 
           {mayWrite ? (
@@ -99,7 +99,7 @@ export default async function CustomerDetailPage({
           )}
         </Card>
 
-        <div className="flex flex-col gap-[var(--s-4)]">
+        <div className="flex min-w-0 flex-col gap-[var(--s-4)]">
           <Card variant="hair">
             <p className="eyebrow m-0">{t("status")}</p>
             <div className="mt-[var(--s-3)] flex flex-wrap gap-[var(--s-2)]">

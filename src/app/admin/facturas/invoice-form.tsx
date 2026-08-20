@@ -9,12 +9,12 @@ import { currencyValues, type Currency } from "@/db/schema";
 import {
   LineEditor,
   TotalsPanel,
-  emptyLine,
   runningTotals,
   type CustomerOption,
   type LineValues,
   type ProductOption,
 } from "@/components/documents/line-editor";
+import { emptyLine } from "@/lib/documents/line-values";
 import { DEFAULT_CREDIT_DAYS } from "@/domain/documents";
 import { createInvoiceAction, updateInvoiceAction } from "./actions";
 

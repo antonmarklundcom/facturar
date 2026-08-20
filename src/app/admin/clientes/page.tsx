@@ -49,7 +49,7 @@ export default async function CustomersPage({
       <PageHeader eyebrow={t("eyebrow")} title={t("title")} description={t("intro")} />
 
       <div className="grid gap-[var(--s-6)] lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
-        <div className="flex flex-col gap-[var(--s-4)]">
+        <div className="flex min-w-0 flex-col gap-[var(--s-4)]">
           <form method="get" className="flex flex-wrap items-center gap-[var(--s-3)]">
             <input
               type="search"

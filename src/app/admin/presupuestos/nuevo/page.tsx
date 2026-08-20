@@ -8,7 +8,7 @@ import { documentEditorOptions } from "@/lib/documents/options";
 import { getTenant } from "@/lib/settings/tenant";
 import { asuncionDateString } from "@/domain/format";
 import { DEFAULT_VALIDITY_DAYS } from "@/domain/documents";
-import { emptyLine } from "@/components/documents/line-editor";
+import { emptyLine } from "@/lib/documents/line-values";
 import { QuoteForm } from "../quote-form";
 
 export async function generateMetadata(): Promise<Metadata> {
