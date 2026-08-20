@@ -72,6 +72,17 @@ export function assertRowTenant(
   }
 }
 
+/**
+ * The `tenants` table is the one table with no `tenant_id` column — its
+ * primary key *is* the tenant id. This helper exists so that reading or
+ * writing a tenant's own row still goes through the same validation as every
+ * other query rather than an ad-hoc `eq(tenants.id, ...)` at the call site.
+ */
+export function ownTenant(idColumn: MySqlColumn, tenantId: number): SQL {
+  assertTenantId(tenantId);
+  return eq(idColumn, tenantId);
+}
+
 export class CrossTenantError extends Error {
   constructor(message = "Cross-tenant access denied") {
     super(message);

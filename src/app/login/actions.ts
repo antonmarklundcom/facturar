@@ -6,7 +6,7 @@ import { APP_PATH, CHANGE_PASSWORD_PATH, LOGIN_PATH } from "@/lib/auth/guards";
 import { fakeVerifyDelay, verifyPassword } from "@/lib/auth/password";
 import { getSession } from "@/lib/auth/session";
 import { findLoginCandidate, markLoggedIn, normalizeEmail } from "@/lib/auth/users";
-import { field, formError, type FormState } from "@/lib/forms";
+import { echo, field, formError, type FormState } from "@/lib/forms";
 import { setUserLocale } from "@/i18n/locale";
 
 /**
@@ -28,17 +28,20 @@ function safeNextPath(candidate: string): string {
  * the rule for every other action and allow-lists this file explicitly.
  */
 export async function loginAction(
-  _previous: FormState,
+  previous: FormState,
   formData: FormData,
 ): Promise<FormState> {
   const email = normalizeEmail(field(formData, "email"));
+  // The email is echoed back so a failed attempt does not clear it; the
+  // password deliberately is not.
+  const values = echo(formData, ["email"]);
   const password = String(formData.get("password") ?? "");
 
   const fieldErrors: Record<string, string> = {};
   if (!email) fieldErrors.email = "required";
   if (!password) fieldErrors.password = "required";
   if (Object.keys(fieldErrors).length > 0) {
-    return formError("invalidCredentials", fieldErrors);
+    return formError("invalidCredentials", fieldErrors, { values, previous });
   }
 
   const candidate = await findLoginCandidate(email);
@@ -47,7 +50,7 @@ export async function loginAction(
     // Spend the same time as a real comparison so response timing does not
     // reveal which addresses have accounts.
     await fakeVerifyDelay();
-    return formError("invalidCredentials");
+    return formError("invalidCredentials", undefined, { values, previous });
   }
 
   const passwordOk = await verifyPassword(password, candidate.passwordHash);
@@ -55,7 +58,7 @@ export async function loginAction(
   // An inactive account gets the same generic answer as a wrong password —
   // "this account is disabled" is an account-existence oracle.
   if (!passwordOk || !candidate.active) {
-    return formError("invalidCredentials");
+    return formError("invalidCredentials", undefined, { values, previous });
   }
 
   const session = await getSession();
