@@ -1,0 +1,10 @@
+# Decision 12: this repo has NO GitHub Actions CI, on purpose.
+# Refuse any staged workflow file so one can never sneak back in.
+staged_workflows=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^\.github/workflows/' || true)
+
+if [ -n "$staged_workflows" ]; then
+  echo "pre-commit: refusing to commit GitHub Actions workflow files (PLAN.md decision 12):"
+  echo "$staged_workflows" | sed 's/^/  - /'
+  echo "Delete them and commit again."
+  exit 1
+fi

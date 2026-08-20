@@ -1,0 +1,222 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   facturar — design tokens (web-design-system)
+
+   Track:        CLINICAL — soft shadow, hairline borders, light-dominant,
+                 cool low-chroma accent, medium air. (B2B software.)
+   Accent:       #6741AA — HSL hue 262deg, S 45%, L 46%. Muted indigo-violet.
+                 Deliberately NOT green/amber/red: those hues are reserved for
+                 document status (pagada / vencida / parcial) and must never
+                 collide with the brand accent in an invoicing UI.
+   Contrast:     ink on base 15.2:1 · accent on base 6.7:1 · accent on surface
+                 7.2:1 · dark-mode accent on dark base 6.8:1. All >= 4.5:1.
+   Type:         display "Bricolage Grotesque", text "Instrument Sans".
+                 Scale ratio 1.30 from a 17px body.
+   Radii:        exactly three (--r-sm / --r-md / --r-lg), assigned by element.
+   Shadows:      always two layers.
+   PDFs are always light — these tokens are app-UI only.
+--------------------------------------------------------------------------- */
+
+:root {
+  color-scheme: light;
+
+  /* ---- track ---- */
+  --base: #f6f5f9;
+  --surface: #ffffff;
+  --surface-2: #f0eef6;
+  --ink: #1a1726;
+  --accent: #6741aa;
+  --accent-contrast: #ffffff;
+
+  /* ---- derived ink ---- */
+  --ink-70: color-mix(in srgb, var(--ink) 70%, transparent);
+  --ink-55: color-mix(in srgb, var(--ink) 55%, transparent);
+  --hairline: color-mix(in srgb, var(--ink) 10%, transparent);
+  --hairline-strong: color-mix(in srgb, var(--ink) 18%, transparent);
+
+  /* ---- semantic status (documents, payments, timbrado) ---- */
+  --ok: #0f7a4d;
+  --ok-soft: #e3f4ec;
+  --warn: #96601a;
+  --warn-soft: #fbf0dd;
+  --danger: #b3261e;
+  --danger-soft: #fbe6e4;
+  --info: #1f5fa8;
+  --info-soft: #e5eefa;
+
+  /* ---- type scale, ratio 1.30, base 17px ---- */
+  --t--1: 0.812rem;
+  --t-0: 1.0625rem;
+  --t-1: 1.383rem;
+  --t-2: 1.797rem;
+  --t-3: 2.336rem;
+  --t-4: 3.037rem;
+  --t-5: 3.948rem;
+  --t-6: 5.133rem;
+  --measure: 65ch;
+
+  /* ---- spacing, 4px base ---- */
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-6: 1.5rem;
+  --s-8: 2rem;
+  --s-12: 3rem;
+  --s-16: 4rem;
+  --s-24: 6rem;
+  --s-32: 8rem;
+
+  /* ---- radii: exactly three ---- */
+  --r-sm: 6px;
+  --r-md: 14px;
+  --r-lg: 28px;
+
+  /* ---- shadows: always two layers ---- */
+  --shadow-1: 0 1px 2px rgb(26 23 38 / 0.05), 0 4px 12px rgb(26 23 38 / 0.07);
+  --shadow-2: 0 2px 4px rgb(26 23 38 / 0.07), 0 16px 40px rgb(26 23 38 / 0.12);
+
+  /* ---- motion ---- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-io: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast: 180ms;
+  --dur: 280ms;
+  --dur-slow: 400ms;
+
+  --container: 1200px;
+  --gutter: clamp(1rem, 5vw, 3rem);
+}
+
+/* Dark tokens. Applied when the user (or the OS, absent an explicit choice)
+   asks for dark. The `data-theme` attribute is set by the theme toggle. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --base: #14121c;
+  --surface: #1d1a28;
+  --surface-2: #262235;
+  --ink: #edebf4;
+  --accent: #a98fe0;
+  --accent-contrast: #17122a;
+
+  --ok: #5bd39a;
+  --ok-soft: #13301f;
+  --warn: #e0b26a;
+  --warn-soft: #33260f;
+  --danger: #f19992;
+  --danger-soft: #3a1714;
+  --info: #8fbdf0;
+  --info-soft: #12253c;
+
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 12px rgb(0 0 0 / 0.35);
+  --shadow-2: 0 2px 4px rgb(0 0 0 / 0.45), 0 16px 40px rgb(0 0 0 / 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --base: #14121c;
+    --surface: #1d1a28;
+    --surface-2: #262235;
+    --ink: #edebf4;
+    --accent: #a98fe0;
+    --accent-contrast: #17122a;
+
+    --ok: #5bd39a;
+    --ok-soft: #13301f;
+    --warn: #e0b26a;
+    --warn-soft: #33260f;
+    --danger: #f19992;
+    --danger-soft: #3a1714;
+    --info: #8fbdf0;
+    --info-soft: #12253c;
+
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 12px rgb(0 0 0 / 0.35);
+    --shadow-2: 0 2px 4px rgb(0 0 0 / 0.45), 0 16px 40px rgb(0 0 0 / 0.5);
+  }
+}
+
+/* Expose the tokens as Tailwind utilities (bg-surface, text-ink-70, rounded-md…). */
+@theme inline {
+  --color-base: var(--base);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-70: var(--ink-70);
+  --color-ink-55: var(--ink-55);
+  --color-accent: var(--accent);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-hairline: var(--hairline);
+  --color-hairline-strong: var(--hairline-strong);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+
+  --font-display: var(--font-bricolage), Georgia, serif;
+  --font-sans: var(--font-instrument), system-ui, sans-serif;
+
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+
+  --shadow-1: var(--shadow-1);
+  --shadow-2: var(--shadow-2);
+
+  --ease-out: var(--ease-out);
+  --ease-io: var(--ease-io);
+}
+
+/* ---- primitives ---- */
+body {
+  margin: 0;
+  background: var(--base);
+  color: var(--ink);
+  font-family: var(--font-instrument), system-ui, sans-serif;
+  font-size: var(--t-0);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-bricolage), Georgia, serif;
+  font-weight: 450;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+  text-wrap: balance;
+}
+
+.eyebrow {
+  font-size: var(--t--1);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* Numeric columns (money, RUC, invoice numbers) must align and never render
+   with proportional digits — a hard requirement for an invoicing UI. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

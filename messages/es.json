@@ -1,0 +1,21 @@
+{
+  "app": {
+    "name": "facturar",
+    "tagline": "Facturación para empresas paraguayas"
+  },
+  "common": {
+    "language": "Idioma",
+    "spanish": "Español",
+    "english": "Inglés",
+    "loading": "Cargando…",
+    "save": "Guardar",
+    "cancel": "Cancelar"
+  },
+  "placeholder": {
+    "eyebrow": "En construcción",
+    "title": "facturar",
+    "body": "Presupuestos, facturas, notas de crédito y pagos en guaraníes — con timbrado, IVA por tasa y envío por WhatsApp.",
+    "status": "Andamiaje listo. La base de datos llega en el PR-2.",
+    "switchTo": "Ver en inglés"
+  }
+}
