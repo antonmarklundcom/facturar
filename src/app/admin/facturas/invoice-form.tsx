@@ -3,13 +3,7 @@
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { useTranslations } from "next-intl";
-import {
-  Field,
-  FormMessage,
-  buttonClass,
-  ghostButtonClass,
-  inputClass,
-} from "@/components/ui/field";
+import { Field, FormMessage, buttonClass, inputClass } from "@/components/ui/field";
 import { IDLE, type FormState } from "@/lib/forms";
 import { currencyValues, type Currency } from "@/db/schema";
 import {
@@ -21,57 +15,60 @@ import {
   type LineValues,
   type ProductOption,
 } from "@/components/documents/line-editor";
-import { DEFAULT_VALIDITY_DAYS } from "@/domain/documents";
-import { createQuoteAction, updateQuoteAction } from "./actions";
+import { DEFAULT_CREDIT_DAYS } from "@/domain/documents";
+import { createInvoiceAction, updateInvoiceAction } from "./actions";
 
 /**
- * The quote editor: header fields plus a line table.
+ * The draft-invoice editor. Same lines as a quote; what differs is the credit
+ * term, which is entered as a number of days ("a 30 días") the way it is
+ * actually agreed, and the date derived from it.
  *
- * The running totals are computed with the very same `domain/iva` functions
- * the server uses to write the document, so what the user watches add up is
- * what gets stored — including the per-line IVA rounding.
+ * This form only ever edits a **draft**. Once issued, an invoice is immutable
+ * (guardrail 4) and the detail page shows it read-only instead.
  */
 
-export type QuoteValues = {
+export type InvoiceValues = {
   id?: number;
+  type: "invoice_contado" | "invoice_credito";
   customerId: string;
   docLocale: string;
   currency: Currency;
   issueDate: string;
-  validityDays: string;
+  creditDays: string;
   notes: string;
   lines: LineValues[];
 };
 
-function Submit({ label, ghost }: { label: string; ghost?: boolean }) {
-  const t = useTranslations("quotes");
+function Submit({ label }: { label: string }) {
+  const t = useTranslations("invoices");
   const { pending } = useFormStatus();
 
   return (
-    <button type="submit" className={ghost ? ghostButtonClass : buttonClass} disabled={pending}>
+    <button type="submit" className={buttonClass} disabled={pending}>
       {pending ? t("saving") : label}
     </button>
   );
 }
 
-export function QuoteForm({
+export function InvoiceForm({
   values,
   customers,
   products,
   mode,
 }: {
-  values: QuoteValues;
+  values: InvoiceValues;
   customers: CustomerOption[];
   products: ProductOption[];
   mode: "create" | "edit";
 }) {
-  const t = useTranslations("quotes");
+  const t = useTranslations("invoices");
 
   const [state, formAction] = useActionState<FormState, FormData>(
-    mode === "create" ? createQuoteAction : updateQuoteAction,
+    mode === "create" ? createInvoiceAction : updateInvoiceAction,
     IDLE,
   );
 
+  const [type, setType] = useState(values.type);
   const [currency, setCurrency] = useState<Currency>(values.currency);
   const [lines, setLines] = useState<LineValues[]>(
     values.lines.length > 0 ? values.lines : [emptyLine()],
@@ -97,6 +94,21 @@ export function QuoteForm({
       ) : null}
 
       <div className="grid gap-[var(--s-4)] sm:grid-cols-2 lg:grid-cols-4">
+        <Field label={t("type")} htmlFor="type" error={error("type")}>
+          <select
+            id="type"
+            name="type"
+            value={type}
+            onChange={(event) =>
+              setType(event.currentTarget.value as InvoiceValues["type"])
+            }
+            className={inputClass}
+          >
+            <option value="invoice_contado">{t("types.contado")}</option>
+            <option value="invoice_credito">{t("types.credito")}</option>
+          </select>
+        </Field>
+
         <Field label={t("customer")} htmlFor="customerId" error={error("customerId")}>
           <select
             id="customerId"
@@ -125,23 +137,6 @@ export function QuoteForm({
           />
         </Field>
 
-        <Field
-          label={t("validityDays")}
-          htmlFor="validityDays"
-          hint={t("validityDaysHint")}
-          error={error("validityDays")}
-        >
-          <input
-            id="validityDays"
-            name="validityDays"
-            type="number"
-            min={1}
-            max={365}
-            defaultValue={values.validityDays || String(DEFAULT_VALIDITY_DAYS)}
-            className={`${inputClass} tabular`}
-          />
-        </Field>
-
         <Field label={t("currency")} htmlFor="currency" error={error("currency")}>
           <select
             id="currency"
@@ -159,22 +154,43 @@ export function QuoteForm({
         </Field>
       </div>
 
-      <Field
-        label={t("docLocale")}
-        htmlFor="docLocale"
-        hint={t("docLocaleHint")}
-        error={error("docLocale")}
-      >
-        <select
-          id="docLocale"
-          name="docLocale"
-          defaultValue={values.docLocale}
-          className={`${inputClass} max-w-xs`}
+      <div className="grid gap-[var(--s-4)] sm:grid-cols-2">
+        {type === "invoice_credito" ? (
+          <Field
+            label={t("creditDays")}
+            htmlFor="creditDays"
+            hint={t("creditDaysHint")}
+            error={error("creditDays")}
+          >
+            <input
+              id="creditDays"
+              name="creditDays"
+              type="number"
+              min={1}
+              max={365}
+              defaultValue={values.creditDays || String(DEFAULT_CREDIT_DAYS)}
+              className={`${inputClass} tabular`}
+            />
+          </Field>
+        ) : null}
+
+        <Field
+          label={t("docLocale")}
+          htmlFor="docLocale"
+          hint={t("docLocaleHint")}
+          error={error("docLocale")}
         >
-          <option value="es">{t("locales.es")}</option>
-          <option value="en">{t("locales.en")}</option>
-        </select>
-      </Field>
+          <select
+            id="docLocale"
+            name="docLocale"
+            defaultValue={values.docLocale}
+            className={inputClass}
+          >
+            <option value="es">{t("locales.es")}</option>
+            <option value="en">{t("locales.en")}</option>
+          </select>
+        </Field>
+      </div>
 
       <LineEditor
         lines={lines}
@@ -182,10 +198,10 @@ export function QuoteForm({
         products={products}
         currency={currency}
         error={error}
-        namespace="quotes"
+        namespace="invoices"
       />
 
-      <TotalsPanel totals={totals} currency={currency} namespace="quotes" />
+      <TotalsPanel totals={totals} currency={currency} namespace="invoices" />
 
       <Field label={t("notes")} htmlFor="notes" hint={t("notesHint")} error={error("notes")}>
         <textarea

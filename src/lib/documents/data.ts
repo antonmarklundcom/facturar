@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, inArray, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import {
   customers,
@@ -14,7 +14,9 @@ import {
 } from "@/db/schema";
 import { assertRowTenant, tenantScoped } from "@/db/tenant";
 import { computeLine, computeTotals } from "@/domain/iva";
-import type { DocumentLineInput, QuoteInput } from "./parse";
+import { allocateDocumentNumber, type AllocatedNumber } from "@/domain/numbering.server";
+import { isIssued, validUntilFrom } from "@/domain/documents";
+import type { DocumentLineInput, InvoiceInput, QuoteInput } from "./parse";
 import { generatePublicToken } from "./token";
 
 /**
@@ -146,7 +148,7 @@ function lineRows(
 }
 
 /** Totals for a document, recomputed from its lines. Never trusted from a form. */
-export function totalsFor(values: QuoteInput) {
+export function totalsFor(values: { lines: readonly DocumentLineInput[]; currency: QuoteInput["currency"] }) {
   const totals = computeTotals(values.lines, values.currency);
   return {
     subtotal10: totals.subtotal10,
@@ -312,4 +314,199 @@ export async function convertQuoteToInvoice(
 
     return invoiceId;
   });
+}
+
+/* -------------------------------------------------------------------------- */
+/* invoices                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/** An issued document was asked to change. It never may (guardrail 4). */
+export class ImmutableDocumentError extends Error {
+  constructor(message = "Issued documents are immutable") {
+    super(message);
+    this.name = "ImmutableDocumentError";
+  }
+}
+
+export async function insertInvoice(
+  tenantId: number,
+  values: InvoiceInput,
+  userId: number,
+): Promise<number> {
+  return db.transaction(async (tx) => {
+    const [result] = await tx.insert(documents).values({
+      tenantId,
+      type: values.type,
+      status: "borrador",
+      customerId: values.customerId,
+      docLocale: values.docLocale,
+      currency: values.currency,
+      issueDate: values.issueDate,
+      dueDate: values.dueDate,
+      notes: values.notes,
+      publicToken: generatePublicToken(),
+      ...totalsFor(values),
+      createdBy: userId,
+      updatedBy: userId,
+    });
+
+    const documentId = result.insertId;
+    const rows = lineRows(tenantId, documentId, values.lines);
+    if (rows.length > 0) await tx.insert(documentLines).values(rows);
+
+    return documentId;
+  });
+}
+
+/**
+ * Replace a **draft** invoice's contents. The `WHERE` clause carries the
+ * immutability rule into the statement itself: `number IS NULL` and
+ * `issued_at IS NULL`, so even a caller that skipped the domain check cannot
+ * rewrite an issued document.
+ */
+export async function replaceDraftInvoice(
+  tenantId: number,
+  documentId: number,
+  values: InvoiceInput,
+  userId: number,
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    const result = await tx
+      .update(documents)
+      .set({
+        type: values.type,
+        customerId: values.customerId,
+        docLocale: values.docLocale,
+        currency: values.currency,
+        issueDate: values.issueDate,
+        dueDate: values.dueDate,
+        notes: values.notes,
+        ...totalsFor(values),
+        updatedBy: userId,
+      })
+      .where(
+        tenantScoped(
+          documents,
+          tenantId,
+          eq(documents.id, documentId),
+          isNull(documents.number),
+          isNull(documents.issuedAt),
+        ),
+      );
+
+    const [meta] = result as unknown as [{ affectedRows: number }];
+    if (!meta || meta.affectedRows !== 1) throw new ImmutableDocumentError();
+
+    await tx
+      .delete(documentLines)
+      .where(tenantScoped(documentLines, tenantId, eq(documentLines.documentId, documentId)));
+
+    const rows = lineRows(tenantId, documentId, values.lines);
+    if (rows.length > 0) await tx.insert(documentLines).values(rows);
+  });
+}
+
+export type IssuedInvoice = AllocatedNumber & {
+  issueDate: string;
+  dueDate: string | null;
+};
+
+/**
+ * Issue a draft invoice: take a number from the timbrado and freeze the
+ * document.
+ *
+ * The number allocation and the document write share **one transaction**
+ * (guardrail 6) — if writing the document fails, the sequence rolls back with
+ * it and no number is skipped. The document row is locked first so two clicks
+ * on "issue" cannot both get past the already-issued check.
+ *
+ * The legal issue date is the day it is actually issued, not the day the draft
+ * was started, so both dates are restated here; a credit invoice keeps the
+ * number of days it was agreed for.
+ */
+export async function issueInvoice(options: {
+  tenantId: number;
+  documentId: number;
+  timbradoId: number;
+  userId: number;
+  today: string;
+}): Promise<IssuedInvoice> {
+  const { tenantId, documentId, timbradoId, userId, today } = options;
+
+  return db.transaction(async (tx) => {
+    const rows = await tx
+      .select()
+      .from(documents)
+      .where(tenantScoped(documents, tenantId, eq(documents.id, documentId)))
+      .for("update")
+      .limit(1);
+
+    const document = rows[0];
+    if (!document) throw new ImmutableDocumentError("Document not found");
+    if (isIssued(document)) throw new ImmutableDocumentError("Already issued");
+
+    const allocated = await allocateDocumentNumber(tx, { tenantId, timbradoId, today });
+
+    // Keep the agreed credit window rather than the calendar date a draft
+    // happened to be written on.
+    const creditDays =
+      document.dueDate && document.issueDate
+        ? Math.max(
+            0,
+            Math.round(
+              (Date.parse(`${document.dueDate}T00:00:00Z`) -
+                Date.parse(`${document.issueDate}T00:00:00Z`)) /
+                86_400_000,
+            ),
+          )
+        : null;
+
+    const dueDate = creditDays === null ? null : validUntilFrom(today, creditDays);
+
+    await tx
+      .update(documents)
+      .set({
+        number: allocated.number,
+        timbradoId: allocated.timbradoId,
+        status: "pendiente",
+        issueDate: today,
+        dueDate,
+        issuedAt: new Date(),
+        issuedBy: userId,
+        updatedBy: userId,
+      })
+      .where(
+        tenantScoped(
+          documents,
+          tenantId,
+          eq(documents.id, documentId),
+          isNull(documents.number),
+        ),
+      );
+
+    return { ...allocated, issueDate: today, dueDate };
+  });
+}
+
+/**
+ * Record where the issued PDF was frozen. Written once, after issuing — the
+ * only column on an issued document that is ever filled in later, and only
+ * when it was still empty.
+ */
+export async function setPdfSnapshot(
+  tenantId: number,
+  documentId: number,
+  reference: string,
+): Promise<void> {
+  await db
+    .update(documents)
+    .set({ pdfSnapshot: reference })
+    .where(
+      tenantScoped(
+        documents,
+        tenantId,
+        eq(documents.id, documentId),
+        isNull(documents.pdfSnapshot),
+      ),
+    );
 }

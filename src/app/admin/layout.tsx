@@ -44,11 +44,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/clientes", label: t("nav.customers"), icon: <CustomersIcon /> },
     { href: "/admin/productos", label: t("nav.products"), icon: <ProductsIcon /> },
     { href: "/admin/presupuestos", label: t("nav.quotes"), icon: <QuotesIcon /> },
+    { href: "/admin/facturas", label: t("nav.invoices"), icon: <InvoicesIcon /> },
   ];
 
-  // PR-10 onward add their own entries here as the routes appear.
+  // PR-11 onward add their own entries here as the routes appear.
   const upcoming: { label: string; icon: React.ReactNode }[] = [
-    { label: t("nav.invoices"), icon: <InvoicesIcon /> },
     { label: t("nav.payments"), icon: <PaymentsIcon /> },
     { label: t("nav.reports"), icon: <ReportsIcon /> },
   ];

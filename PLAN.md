@@ -157,7 +157,7 @@ Apply `web-design-system`; no pricing page in v1. Must not pull the authenticate
 | 7 | Customers | **merged** |
 | 8 | Products | **merged** |
 | 9 | Quotes | **merged** |
-| 10 | Invoices | pending |
+| 10 | Invoices | **merged** |
 | 11 | Credit notes + payments | pending |
 | 12 | Send flows | pending |
 | 13 | Dashboard + reports | pending |
@@ -243,6 +243,38 @@ Carried into later PRs rather than fixed in place:
   transactional writes (`insertQuote`, `replaceQuote`, `convertQuoteToInvoice`) are typed
   and reviewed but not executed. Run them, plus `tests/domain/numbering.db.test.ts`, on
   the first real database — PR-6 or the start of PR-10, whichever comes first.
+
+## PR-10 notes (recorded 2026-08-20)
+
+- **Issuing is one transaction**: the row is locked, the already-issued check runs inside
+  the lock, the PR-4 generator allocates, and the document write happens in the same
+  transaction — so a rollback never skips a number (guardrail 6).
+- **The PDF snapshot is taken *after* that transaction commits**, deliberately. Rendering
+  takes ~half a second, and holding the timbrado's row lock through it would serialise
+  every concurrent issue. A snapshot that fails to write leaves an issued invoice that
+  still renders live and logs loudly; the reverse — a snapshot for a number that rolled
+  back — would be worse.
+- **Snapshots live in `DOCUMENT_STORAGE_DIR`** (new in `.env.example`), written with
+  `flag: "wx"` so a second write to the same reference fails rather than overwriting an
+  issued document. On Hostinger point this at the slot's persistent disk, **outside** the
+  app directory, and include it in the PR-6 backup cron — the database alone will not
+  restore the PDFs.
+- **Immutability is enforced three times over**: `isDocumentEditable()` in the domain, the
+  action's check, and `isNull(number) AND isNull(issued_at)` in the UPDATE's own WHERE
+  clause. `tests/immutability.test.ts` additionally pins that every write to `documents`
+  lives in one module and that nothing else builds a document number.
+- **The issue date is restated at issue time** — a draft written last week issues with
+  today's date, and a credit invoice keeps the number of days it was agreed for rather
+  than the date the draft happened to carry.
+- **`vitest.config.ts` aliases `server-only` to an empty stub** (`tests/stubs/`), closing
+  the Phase A finding that server modules could not be unit-tested. `next build` still
+  resolves the real package, so the client-bundle guard is unaffected.
+- **The line editor is now shared** (`src/components/documents/line-editor.tsx`) between
+  quotes and invoices; PR-11's credit notes should use it rather than a third copy.
+- **Still no live database in the build container.** `issueInvoice()` and
+  `replaceDraftInvoice()` are typed, reviewed and statically guarded, but the concurrency
+  behaviour is only proven by `tests/domain/numbering.db.test.ts`, which needs
+  `TEST_DATABASE_URL`. **Run that before PR-11 goes near payments.**
 
 ## v1.1 backlog (decided, deliberately not in v1)
 
