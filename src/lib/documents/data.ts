@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, inArray, isNull, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lte, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import {
   customers,
@@ -25,6 +25,7 @@ import {
   paidTotal,
   type PaymentLike,
 } from "@/domain/payments";
+import type { Period } from "@/domain/reports";
 import type { DocumentLineInput, InvoiceInput, QuoteInput } from "./parse";
 import { generatePublicToken } from "./token";
 
@@ -734,4 +735,153 @@ export async function listRecentPayments(
     documentNumber: row.document?.number ?? null,
     customerName: row.customer?.name ?? null,
   }));
+}
+
+/* -------------------------------------------------------------------------- */
+/* reporting and the dashboard (PR-13)                                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Everything issued in a period, for the IVA and sales reports. Quotes are
+ * excluded here rather than in the domain: they are not a tax event, and
+ * fetching them would only be work the report then throws away.
+ */
+export async function listPeriodDocuments(
+  tenantId: number,
+  period: Period,
+): Promise<DocumentWithCustomer[]> {
+  const rows = await db
+    .select({ document: documents, customer: customers })
+    .from(documents)
+    .leftJoin(
+      customers,
+      and(eq(customers.id, documents.customerId), eq(customers.tenantId, documents.tenantId)),
+    )
+    .where(
+      tenantScoped(
+        documents,
+        tenantId,
+        inArray(documents.type, ["invoice_contado", "invoice_credito", "credit_note"]),
+        gte(documents.issueDate, period.from),
+        lte(documents.issueDate, period.to),
+      ),
+    )
+    .orderBy(asc(documents.issueDate), asc(documents.id));
+
+  return rows.map((row) => ({ ...row.document, customer: row.customer }));
+}
+
+/** Issued invoices that are not settled yet, oldest due date first. */
+export async function listUnpaidInvoices(
+  tenantId: number,
+  limit = 200,
+): Promise<DocumentWithCustomer[]> {
+  const rows = await db
+    .select({ document: documents, customer: customers })
+    .from(documents)
+    .leftJoin(
+      customers,
+      and(eq(customers.id, documents.customerId), eq(customers.tenantId, documents.tenantId)),
+    )
+    .where(
+      tenantScoped(
+        documents,
+        tenantId,
+        inArray(documents.type, ["invoice_contado", "invoice_credito"]),
+        inArray(documents.status, ["pendiente", "parcial", "vencida"]),
+      ),
+    )
+    .orderBy(asc(documents.dueDate), asc(documents.issueDate))
+    .limit(limit);
+
+  return rows.map((row) => ({ ...row.document, customer: row.customer }));
+}
+
+/** Quotes still waiting on an answer, soonest to expire first. */
+export async function listOpenQuotes(
+  tenantId: number,
+  limit = 50,
+): Promise<DocumentWithCustomer[]> {
+  const rows = await db
+    .select({ document: documents, customer: customers })
+    .from(documents)
+    .leftJoin(
+      customers,
+      and(eq(customers.id, documents.customerId), eq(customers.tenantId, documents.tenantId)),
+    )
+    .where(
+      tenantScoped(
+        documents,
+        tenantId,
+        eq(documents.type, "quote"),
+        inArray(documents.status, ["borrador", "enviado"]),
+      ),
+    )
+    .orderBy(asc(documents.validUntil), asc(documents.id))
+    .limit(limit);
+
+  return rows.map((row) => ({ ...row.document, customer: row.customer }));
+}
+
+export type InvoiceBalanceRow = DocumentWithCustomer & {
+  paid: number;
+  credited: number;
+  outstanding: number;
+};
+
+/**
+ * Balances for a set of invoices in three queries rather than three per
+ * invoice: the payments and the credit notes are summed in the database, and
+ * the arithmetic that decides what those mean stays in `domain/payments`.
+ */
+export async function balancesFor(
+  tenantId: number,
+  invoices: readonly DocumentWithCustomer[],
+): Promise<InvoiceBalanceRow[]> {
+  if (invoices.length === 0) return [];
+
+  const ids = invoices.map((invoice) => invoice.id);
+
+  const [paidRows, creditRows] = await Promise.all([
+    db
+      .select({
+        documentId: payments.documentId,
+        amount: sql<number>`sum(${payments.amount})`,
+      })
+      .from(payments)
+      .where(tenantScoped(payments, tenantId, inArray(payments.documentId, ids)))
+      .groupBy(payments.documentId),
+    db
+      .select({
+        invoiceId: documents.relatedDocumentId,
+        amount: sql<number>`sum(${documents.total})`,
+      })
+      .from(documents)
+      .where(
+        tenantScoped(
+          documents,
+          tenantId,
+          eq(documents.type, "credit_note"),
+          inArray(documents.relatedDocumentId, ids),
+        ),
+      )
+      .groupBy(documents.relatedDocumentId),
+  ]);
+
+  const paidBy = new Map(paidRows.map((row) => [row.documentId, Number(row.amount) || 0]));
+  const creditedBy = new Map(
+    creditRows.map((row) => [row.invoiceId ?? 0, Number(row.amount) || 0]),
+  );
+
+  return invoices.map((invoice) => {
+    const paid = paidBy.get(invoice.id) ?? 0;
+    const credited = creditedBy.get(invoice.id) ?? 0;
+
+    return {
+      ...invoice,
+      paid,
+      credited,
+      outstanding: outstanding(invoice.total, paid, credited),
+    };
+  });
 }
