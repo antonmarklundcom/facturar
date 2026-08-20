@@ -1,0 +1,21 @@
+{
+  "app": {
+    "name": "facturar",
+    "tagline": "Invoicing for Paraguayan businesses"
+  },
+  "common": {
+    "language": "Language",
+    "spanish": "Spanish",
+    "english": "English",
+    "loading": "Loading…",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "placeholder": {
+    "eyebrow": "Under construction",
+    "title": "facturar",
+    "body": "Quotes, invoices, credit notes and payments in guaraníes — with timbrado, per-rate IVA and WhatsApp delivery.",
+    "status": "Scaffold in place. The database lands in PR-2.",
+    "switchTo": "View in Spanish"
+  }
+}
