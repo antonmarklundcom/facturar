@@ -423,6 +423,21 @@ against a live database" caveat on PR-7 → PR-13.
 - Two layout bugs were caught at 390 px and fixed: the header did not wrap, and the
   oversized step numbers landed on top of their titles.
 
+## MySQL 8 verification (recorded 2026-08-20)
+
+The Phase A caveat "migrations were verified against MariaDB 10.11" is retired. The whole
+app was run against **MySQL 8.0.46** with its default strict `sql_mode`
+(`ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION`):
+
+- `drizzle-kit migrate` applied every migration cleanly to a fresh MySQL 8 database.
+- `tests/domain/numbering.db.test.ts` passed — gap-free numbering under concurrency.
+- The seed ran, and all 31 `scripts/qa.mjs` checks passed against it: issuing, PDFs,
+  payments, credit notes, reports, CSV, the buyer link and the landing page.
+
+So PR-6 should be an infrastructure exercise, not a compatibility one. What is still
+untested there is Hostinger specifically: Remote MySQL IP allowlisting, the build box
+reaching `next/font/google`, and the persistent path for `DOCUMENT_STORAGE_DIR`.
+
 ## Phase B complete
 
 PR-7 → PR-15 are merged. **PR-6 (deploy) is the only PR left in the plan**, and it is
