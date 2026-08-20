@@ -26,6 +26,18 @@ npm run dev
 | `npm run verify` | lint + typecheck + test + build — the same gate the pre-push hook runs |
 | `npm run db:generate` / `npm run db:migrate` | drizzle-kit migrations |
 
+### Database
+
+The schema lives in `src/db/schema.ts`; migrations are generated into `drizzle/` and committed.
+
+```bash
+npm run db:generate                      # after editing the schema
+DATABASE_URL="mysql://…" npm run db:migrate
+```
+
+`drizzle-kit` reads `DATABASE_URL` from the environment, so pass `.env` explicitly
+(`npx dotenv` is not installed): `env $(grep -v '^#' .env | xargs) npm run db:migrate`.
+
 One-off scripts run through `tsx`, which does **not** auto-load `.env`:
 
 ```bash
