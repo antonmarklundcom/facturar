@@ -7,13 +7,23 @@ import { requireRole } from "@/lib/auth/guards";
 import { findCustomer } from "@/lib/customers/data";
 import {
   ImmutableDocumentError,
+  createAndIssueCreditNote,
   findDocument,
   insertInvoice,
+  insertPayment,
+  invoiceBalance,
   issueInvoice,
+  refreshInvoiceStatus,
   replaceDraftInvoice,
   setPdfSnapshot,
 } from "@/lib/documents/data";
-import { INVOICE_FIELDS, parseInvoice } from "@/lib/documents/parse";
+import {
+  INVOICE_FIELDS,
+  PAYMENT_FIELDS,
+  parseCreditNote,
+  parseInvoice,
+  parsePayment,
+} from "@/lib/documents/parse";
 import { renderDocumentPdf } from "@/lib/pdf/render";
 import { saveSnapshot, snapshotReference } from "@/lib/pdf/storage";
 import { findTimbrado, toSnapshot } from "@/lib/settings/timbrados";
@@ -21,7 +31,9 @@ import { getTenant } from "@/lib/settings/tenant";
 import { echo, field, formError, formSuccess, type FormState } from "@/lib/forms";
 import { idField } from "@/lib/validation";
 import { asuncionDateString } from "@/domain/format";
-import { isDocumentEditable, isIssuable } from "@/domain/documents";
+import { isDocumentEditable, isIssuable, isIssued } from "@/domain/documents";
+import { computeTotals } from "@/domain/iva";
+import { creditProblem, paymentProblem } from "@/domain/payments";
 import { issuingBlockers } from "@/domain/timbrado";
 import { NumberingError } from "@/domain/numbering";
 
@@ -211,4 +223,156 @@ async function storeSnapshot(
       error: error instanceof Error ? error.message : String(error),
     });
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/* payments (PR-11)                                                            */
+/* -------------------------------------------------------------------------- */
+
+export async function recordPaymentAction(
+  previous: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const session = await requireRole("payments.write");
+  const values = echo(formData, PAYMENT_FIELDS);
+
+  const id = idField(field(formData, "documentId"));
+  if (!id.ok) return formError("invalid", undefined, { values, previous });
+
+  const full = await findDocument(session.tenantId, id.value);
+  if (!full) return formError("notFound", undefined, { values, previous });
+
+  const parsed = parsePayment(formData, full.document.currency, today());
+  if (!parsed.ok) return formError("invalid", parsed.fieldErrors, { values, previous });
+
+  const balance = await invoiceBalance(session.tenantId, full.document, today());
+
+  // The domain decides whether this payment may be recorded; the form only
+  // asked the question.
+  const problem = paymentProblem({
+    status: balance.status,
+    isIssued: isIssued(full.document),
+    currency: full.document.currency,
+    outstandingAmount: balance.outstanding,
+    payment: { amount: parsed.values.amount, currency: parsed.values.currency },
+  });
+
+  if (problem) return formError(`payment_${problem}`, undefined, { values, previous });
+
+  const paymentId = await insertPayment(
+    session.tenantId,
+    { ...parsed.values, documentId: id.value },
+    session.userId,
+  );
+
+  const status = await refreshInvoiceStatus(session.tenantId, id.value, today());
+
+  await logActivity({
+    tenantId: session.tenantId,
+    userId: session.userId,
+    entityType: "document",
+    entityId: id.value,
+    action: "paid",
+    detail: {
+      paymentId,
+      amount: parsed.values.amount,
+      method: parsed.values.method,
+      status,
+    },
+  });
+
+  revalidatePath(INVOICES_PATH);
+  revalidatePath(`${INVOICES_PATH}/${id.value}`);
+  revalidatePath("/admin/pagos");
+  return formSuccess("paid");
+}
+
+/* -------------------------------------------------------------------------- */
+/* credit notes (PR-11)                                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Issue a credit note against an issued invoice — the only way to correct one
+ * (guardrail 4). It takes its own number from a timbrado, so all the issuing
+ * rules apply to it as well.
+ */
+export async function issueCreditNoteAction(
+  previous: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const session = await requireRole("documents.issue");
+
+  const id = idField(field(formData, "documentId"));
+  const timbradoId = idField(field(formData, "timbradoId"));
+  if (!id.ok) return formError("invalid", undefined, { previous });
+  if (!timbradoId.ok) return formError("noTimbrado", undefined, { previous });
+
+  const invoice = await findDocument(session.tenantId, id.value);
+  if (!invoice) return formError("notFound", undefined, { previous });
+
+  const parsed = parseCreditNote(formData, invoice.document.currency, today());
+  if (!parsed.ok) return formError("invalid", parsed.fieldErrors, { previous });
+
+  const balance = await invoiceBalance(session.tenantId, invoice.document, today());
+  const creditTotal = computeTotals(parsed.values.lines, invoice.document.currency).total;
+
+  const problem = creditProblem({
+    invoiceStatus: balance.status,
+    invoiceIsIssued: isIssued(invoice.document),
+    invoiceTotal: invoice.document.total,
+    invoiceCurrency: invoice.document.currency,
+    alreadyCredited: balance.credited,
+    creditTotal,
+    creditCurrency: invoice.document.currency,
+  });
+
+  if (problem) return formError(`credit_${problem}`, undefined, { previous });
+
+  const timbrado = await findTimbrado(session.tenantId, timbradoId.value);
+  if (!timbrado) return formError("noTimbrado", undefined, { previous });
+
+  const blockers = issuingBlockers(toSnapshot(timbrado), today());
+  if (blockers.length > 0) {
+    return formError(`blocked_${blockers[0]}`, undefined, { previous });
+  }
+
+  let created;
+  try {
+    created = await createAndIssueCreditNote({
+      tenantId: session.tenantId,
+      invoice: invoice.document,
+      lines: parsed.values.lines,
+      timbradoId: timbradoId.value,
+      userId: session.userId,
+      today: today(),
+      notes: parsed.values.notes,
+    });
+  } catch (error) {
+    if (error instanceof NumberingError) {
+      return formError("numbering", undefined, { previous });
+    }
+    throw error;
+  }
+
+  const status = await refreshInvoiceStatus(session.tenantId, id.value, today());
+
+  await logActivity({
+    tenantId: session.tenantId,
+    userId: session.userId,
+    entityType: "document",
+    entityId: id.value,
+    action: "credited",
+    detail: {
+      creditNoteId: created.creditNoteId,
+      number: created.number,
+      amount: creditTotal,
+      status,
+    },
+  });
+
+  await storeSnapshot(session.tenantId, created.creditNoteId, created.number);
+
+  revalidatePath(INVOICES_PATH);
+  revalidatePath(`${INVOICES_PATH}/${id.value}`);
+  return formSuccess("credited");
 }

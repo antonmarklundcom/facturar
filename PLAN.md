@@ -158,7 +158,7 @@ Apply `web-design-system`; no pricing page in v1. Must not pull the authenticate
 | 8 | Products | **merged** |
 | 9 | Quotes | **merged** |
 | 10 | Invoices | **merged** |
-| 11 | Credit notes + payments | pending |
+| 11 | Credit notes + payments | **merged** |
 | 12 | Send flows | pending |
 | 13 | Dashboard + reports | pending |
 | 14 | Seed + polish | pending |
@@ -275,6 +275,35 @@ Carried into later PRs rather than fixed in place:
   `replaceDraftInvoice()` are typed, reviewed and statically guarded, but the concurrency
   behaviour is only proven by `tests/domain/numbering.db.test.ts`, which needs
   `TEST_DATABASE_URL`. **Run that before PR-11 goes near payments.**
+
+## PR-11 notes (recorded 2026-08-20)
+
+- **Invoice status is derived, never typed in.** `derivePaymentStatus()` in
+  `src/domain/payments.ts` is the single answer, and its precedence is deliberate:
+  anulada → pagada → **vencida** → parcial → pendiente. `vencida` outranks `parcial`
+  because "half paid and three weeks late" is a collections problem, and PR-13's
+  dashboard needs it surfaced as one. Use that function there rather than querying for
+  the stored status.
+- **The status is stored as well as derived**, refreshed by `refreshInvoiceStatus()`
+  after every payment and credit note so lists can filter on it. It is the only column
+  written on an issued invoice — the content stays immutable; what changes is the world
+  around it. An invoice whose due date passes with no activity keeps its stored status
+  until something touches it, which is why every read path derives it again.
+- **A credit note has no draft state.** It is created and issued in one transaction, with
+  its own number from the timbrado (guardrail 6), and is immutable from the moment it
+  exists. Correcting one means issuing another document.
+- **Over-crediting is blocked**: `creditProblem()` refuses a note that would take the
+  total credited past the invoice, across any number of notes.
+- **Payments are recorded in the invoice's currency only.** A payment in another currency
+  needs a settlement rate, which is a v1.1 conversation — the form does not offer the
+  choice rather than silently mis-scaling the amount.
+- **Payments cannot currently be deleted or edited.** A mistyped payment has no undo yet;
+  that is the first thing to add if a pilot hits it (admin-only delete + activity log).
+- **PR-13 can reuse** `invoiceBalance()` and `listRecentPayments()` as they stand; the IVA
+  report will want a per-period aggregate over `documents` instead.
+- **Still not run against a live database.** The transactional paths (issue, credit-note
+  issue, payment + status refresh) are typed, statically guarded and unit-tested at the
+  domain level, but nothing in Phase B has executed SQL yet.
 
 ## v1.1 backlog (decided, deliberately not in v1)
 
