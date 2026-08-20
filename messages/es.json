@@ -890,5 +890,83 @@
       "title": "No hay documentos emitidos en este período",
       "body": "Cambiá el período o emití una factura: los presupuestos y los borradores no entran en el informe."
     }
+  },
+  "landing": {
+    "meta": {
+      "title": "facturar — facturación para empresas paraguayas",
+      "description": "Presupuestos, facturas con timbrado y cobros, con IVA al 10 %, 5 % y exenta, en guaraníes y por WhatsApp."
+    },
+    "nav": {
+      "login": "Entrar"
+    },
+    "hero": {
+      "eyebrow": "Facturación paraguaya",
+      "title": "Facturá, mandá por WhatsApp y cobrá.",
+      "body": "Presupuestos y facturas con tu timbrado, el IVA liquidado como lo pide tu contador y todo en guaraníes. Sin planillas y sin talonario.",
+      "note": "Hecho para ferreterías, talleres, consultorios y estudios que facturan todos los días.",
+      "screenshotAlt": "Pantalla de una factura emitida en facturar, con sus líneas, el IVA incluido y el historial del documento."
+    },
+    "cta": {
+      "whatsapp": "Escribinos por WhatsApp",
+      "whatsappMessage": "Hola, quiero ver cómo funciona facturar para mi empresa.",
+      "login": "Entrar al sistema"
+    },
+    "facts": {
+      "ruc": "RUC validado con su dígito verificador",
+      "rates": "IVA 10 %, 5 % y exenta",
+      "currencies": "Guaraníes y dólares",
+      "roles": "Varios usuarios con permisos"
+    },
+    "benefits": {
+      "eyebrow": "Por qué facturar",
+      "title": "Lo que tarda una tarde en el talonario, acá son dos minutos.",
+      "whatsapp": {
+        "title": "WhatsApp primero",
+        "body": "Cada presupuesto y cada factura tiene su enlace propio. Un toque y sale el mensaje al cliente, con el PDF listo para descargar. Así se manda todo en Paraguay, así se manda acá."
+      },
+      "iva": {
+        "title": "El IVA, bien liquidado",
+        "body": "Precios con IVA incluido, como se cotiza acá. El sistema desglosa el 10 %, el 5 % y las exentas por línea y arma el resumen del período."
+      },
+      "timbrado": {
+        "title": "Tu timbrado, controlado",
+        "body": "Numeración correlativa sin saltos, aviso cuando se está por vencer o se acaban los números, y bloqueo antes de emitir con un timbrado vencido."
+      },
+      "guaranies": {
+        "title": "Guaraníes de verdad",
+        "body": "Sin centavos inventados ni redondeos raros: los montos se guardan en guaraníes enteros. También podés facturar en dólares."
+      }
+    },
+    "how": {
+      "eyebrow": "Cómo funciona",
+      "title": "Del presupuesto al cobro, sin volver a escribir nada.",
+      "quote": {
+        "title": "Armá el presupuesto",
+        "body": "Elegís el cliente, traés los productos de tu lista de precios y definís por cuántos días vale. Se manda por WhatsApp en el idioma del cliente."
+      },
+      "invoice": {
+        "title": "Convertilo en factura",
+        "body": "Cuando el cliente acepta, la factura sale con todas las líneas y toma el próximo número de tu timbrado. Emitida ya no se toca: se corrige con nota de crédito."
+      },
+      "collect": {
+        "title": "Registrá el cobro",
+        "body": "Efectivo, transferencia, Tigo Money, Billetera Personal, Zimple o QR. La factura se marca sola como parcial, pagada o vencida."
+      }
+    },
+    "proof": {
+      "eyebrow": "El sistema de verdad",
+      "title": "Esto es una factura real del sistema, no un dibujo.",
+      "body": "El panel te muestra primero lo que necesita atención hoy: lo vencido sin cobrar, los presupuestos esperando respuesta y el estado de tu timbrado.",
+      "screenshotAlt": "Panel de facturar mostrando facturas vencidas, montos por cobrar y presupuestos esperando respuesta."
+    },
+    "close": {
+      "eyebrow": "Empezá hoy",
+      "title": "¿Lo vemos con tus propios datos?",
+      "body": "Cargamos tu timbrado, tu logo y tu lista de precios, y facturás la misma semana. Escribinos y te mostramos el sistema funcionando."
+    },
+    "footer": {
+      "line": "facturar — facturación para empresas paraguayas",
+      "note": "Los montos y los clientes de las pantallas son de una empresa de demostración."
+    }
   }
 }

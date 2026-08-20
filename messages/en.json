@@ -890,5 +890,83 @@
       "title": "No documents were issued in this period",
       "body": "Change the period or issue an invoice — quotes and drafts do not appear in the report."
     }
+  },
+  "landing": {
+    "meta": {
+      "title": "facturar — invoicing for Paraguayan businesses",
+      "description": "Quotes, timbrado-numbered invoices and payments, with IVA at 10%, 5% and exempt, in guaraníes and over WhatsApp."
+    },
+    "nav": {
+      "login": "Log in"
+    },
+    "hero": {
+      "eyebrow": "Paraguayan invoicing",
+      "title": "Invoice it, send it on WhatsApp, get paid.",
+      "body": "Quotes and invoices under your own timbrado, IVA broken down the way your accountant asks for it, and everything in guaraníes. No spreadsheets, no paper book.",
+      "note": "Built for the hardware stores, workshops, clinics and studios that invoice every day.",
+      "screenshotAlt": "An issued invoice in facturar, showing its lines, the IVA included and the document history."
+    },
+    "cta": {
+      "whatsapp": "Message us on WhatsApp",
+      "whatsappMessage": "Hello, I would like to see how facturar works for my business.",
+      "login": "Log in"
+    },
+    "facts": {
+      "ruc": "RUC validated with its check digit",
+      "rates": "IVA 10%, 5% and exempt",
+      "currencies": "Guaraníes and dollars",
+      "roles": "Several users, with roles"
+    },
+    "benefits": {
+      "eyebrow": "Why facturar",
+      "title": "What takes an afternoon with a paper book takes two minutes here.",
+      "whatsapp": {
+        "title": "WhatsApp first",
+        "body": "Every quote and invoice gets its own link. One tap sends the message to the customer with the PDF ready to download — the way everything is sent in Paraguay."
+      },
+      "iva": {
+        "title": "IVA, properly broken down",
+        "body": "Prices are IVA-inclusive, the way they are quoted here. The system splits 10%, 5% and exempt per line and rolls the period up for you."
+      },
+      "timbrado": {
+        "title": "Your timbrado, under control",
+        "body": "Gap-free correlative numbering, a warning before it expires or runs out of numbers, and a hard block on issuing against an expired one."
+      },
+      "guaranies": {
+        "title": "Real guaraníes",
+        "body": "No invented cents and no odd rounding: amounts are stored as whole guaraníes. You can invoice in dollars too."
+      }
+    },
+    "how": {
+      "eyebrow": "How it works",
+      "title": "From quote to payment without retyping anything.",
+      "quote": {
+        "title": "Build the quote",
+        "body": "Pick the customer, pull products from your price list, and set how many days it is valid for. It goes out on WhatsApp in the customer's language."
+      },
+      "invoice": {
+        "title": "Turn it into an invoice",
+        "body": "When the customer accepts, the invoice carries every line and takes the next number from your timbrado. Once issued it is never edited — corrections are credit notes."
+      },
+      "collect": {
+        "title": "Record the payment",
+        "body": "Cash, bank transfer, Tigo Money, Billetera Personal, Zimple or QR. The invoice marks itself partly paid, paid or overdue."
+      }
+    },
+    "proof": {
+      "eyebrow": "The actual system",
+      "title": "That is a real invoice from the system, not a mock-up.",
+      "body": "The dashboard leads with what needs attention today: overdue money, quotes waiting for an answer, and the state of your timbrado.",
+      "screenshotAlt": "The facturar dashboard showing overdue invoices, outstanding amounts and quotes awaiting an answer."
+    },
+    "close": {
+      "eyebrow": "Start today",
+      "title": "Shall we look at it with your own data?",
+      "body": "We load your timbrado, your logo and your price list, and you are invoicing the same week. Message us and we will show you the system running."
+    },
+    "footer": {
+      "line": "facturar — invoicing for Paraguayan businesses",
+      "note": "The amounts and customers on these screens belong to a demo company."
+    }
   }
 }

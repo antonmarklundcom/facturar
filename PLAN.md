@@ -162,7 +162,7 @@ Apply `web-design-system`; no pricing page in v1. Must not pull the authenticate
 | 12 | Send flows | **merged** |
 | 13 | Dashboard + reports | **merged** |
 | 14 | Seed + polish | **merged** |
-| 15 | Landing page | pending |
+| 15 | Landing page | **merged** |
 
 ## Phase A notes (recorded 2026-08-20)
 
@@ -392,6 +392,44 @@ against a live database" caveat on PR-7 → PR-13.
 - **Design nit for later:** the display font has no `₲` glyph, so the browser falls back
   for that one character in the big dashboard figures. Legible, but slightly mismatched —
   worth a font with U+20B2 before the first paying customer.
+
+## PR-15 notes (recorded 2026-08-20)
+
+- **The landing page uses the product's own palette**, not a newly derived one. The
+  web-design-system registry step exists to stop two *client* sites colliding; a
+  product's marketing page must match the product, or the screenshot on it would look
+  like someone else's software.
+- **Section patterns, none repeated twice in a row:** P1 asymmetric split (hero) → P8
+  full-bleed ribbon (facts) → P3 staggered-weight grid (benefits) → P5 numbered rail
+  (how it works) → P6 bleed-image overlap (the panel crossing the boundary) → P2 offset
+  stack (close). Four card variants appear; the required full-bleed, overlap and
+  oversized statement are all present.
+- **No testimonials and no invented numbers.** There are no customers yet, and a
+  fabricated quote is the one thing an SMB owner spots instantly. The proof is a real
+  screenshot of a real invoice from the seeded system.
+- **The screenshots are captured from the running app** (`public/producto-factura.png`,
+  `public/producto-panel.png`). Re-capture them whenever the UI changes materially —
+  `scripts/qa.mjs` shows how.
+- **`NEXT_PUBLIC_CONTACT_WHATSAPP` is empty by default** and the WhatsApp CTA simply does
+  not render without it. **Set it before PR-6 deploys**, or the landing page ships with
+  only the log-in button.
+- **Analytics is prepped, not installed:** every CTA carries `data-ev` / `data-ev-loc`
+  and clicks land in `window.dataLayer`. GA4, GTM or Plausible can be switched on later
+  with one paste and no markup changes. Nothing third-party loads today, and the page
+  sets **no cookies** — asserted in the QA pass.
+- **Motion**: reveal only, 280 ms, 70 ms stagger capped at six, disabled under
+  `prefers-reduced-motion`, and nothing animates above the fold — animating the hero
+  delays LCP and reads slow on a phone.
+- Two layout bugs were caught at 390 px and fixed: the header did not wrap, and the
+  oversized step numbers landed on top of their titles.
+
+## Phase B complete
+
+PR-7 → PR-15 are merged. **PR-6 (deploy) is the only PR left in the plan**, and it is
+the one that needs your Hostinger credentials. Before it runs, decide:
+`NEXT_PUBLIC_CONTACT_WHATSAPP`, `NEXT_PUBLIC_APP_URL`, `DOCUMENT_STORAGE_DIR` (persistent
+disk, outside the app directory, included in the backup cron), and — if email is wanted
+on day one — `RESEND_API_KEY` plus a verified sender domain.
 
 ## v1.1 backlog (decided, deliberately not in v1)
 

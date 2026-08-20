@@ -52,6 +52,26 @@ const mainText = async (target = page) => {
   return (await target.locator("main").innerText()).replace(/\s+/g, " ");
 };
 
+// The public landing page, before any session exists (decision 22).
+await page.goto(BASE, { waitUntil: "networkidle" });
+const landing = await mainText();
+if (!/WhatsApp/.test(landing)) fail("landing", landing.slice(0, 200));
+else pass("landing renders with no session");
+
+const landingCtas = await page.locator("a[data-ev]").count();
+if (landingCtas < 2) fail("landing CTAs", `${landingCtas} tagged CTAs`);
+else pass(`landing CTAs tagged for analytics (${landingCtas})`);
+
+const landingCookies = await context.cookies();
+if (landingCookies.length > 0) fail("landing cookies", JSON.stringify(landingCookies.map((c) => c.name)));
+else pass("landing sets no cookies");
+
+const landingOverflow = await page.evaluate(
+  () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+);
+if (landingOverflow > 1) fail("landing overflow at 390px", `${landingOverflow}px`);
+else pass("no horizontal scroll at 390px /");
+
 await page.goto(`${BASE}/login`, { waitUntil: "networkidle" });
 await page.fill("#email", "admin@sanblas.com.py");
 await page.fill("#password", "FerreteriaDemo2026");
