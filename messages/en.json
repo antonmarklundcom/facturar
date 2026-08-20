@@ -17,5 +17,101 @@
     "body": "Quotes, invoices, credit notes and payments in guaraníes — with timbrado, per-rate IVA and WhatsApp delivery.",
     "status": "Scaffold in place. The database lands in PR-2.",
     "switchTo": "View in Spanish"
+  },
+  "login": {
+    "eyebrow": "facturar",
+    "title": "Sign in to your account",
+    "email": "Email address",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "forgotPassword": "Forgot your password? Ask your company's administrator to set a new one for you.",
+    "errors": {
+      "invalidCredentials": "Incorrect email or password.",
+      "required": "This field is required."
+    }
+  },
+  "admin": {
+    "logout": "Sign out",
+    "nav": {
+      "users": "Users"
+    },
+    "roles": {
+      "admin": "Administrator",
+      "employee": "Employee",
+      "viewer": "Read-only"
+    },
+    "dashboard": {
+      "eyebrow": "Dashboard",
+      "greeting": "Hello, {name}",
+      "body": "This is where what needs your attention today will live: overdue invoices, quotes to follow up and timbrado warnings. It lands in PR-5."
+    }
+  },
+  "changePassword": {
+    "eyebrow": "Your account",
+    "title": "Change password",
+    "body": "Change your password whenever you like.",
+    "forced": "An administrator set a new password for your account. Choose your own to continue.",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Repeat the new password",
+    "hint": "At least {min} characters.",
+    "submit": "Save password",
+    "submitting": "Saving…",
+    "errors": {
+      "invalid": "We could not change the password. Check the details.",
+      "required": "This field is required.",
+      "wrong": "The current password does not match.",
+      "mismatch": "The passwords do not match.",
+      "too_short": "It is too short.",
+      "too_common": "It is too easy to guess.",
+      "unchanged": "Choose a password different from the current one."
+    }
+  },
+  "users": {
+    "eyebrow": "Settings",
+    "title": "Users",
+    "body": "Add your team and decide what each person can do. Permissions are checked on the server, not only on screen.",
+    "createTitle": "Add user",
+    "name": "Name",
+    "email": "Email address",
+    "role": "Role",
+    "uiLocale": "Interface language",
+    "active": "Active",
+    "inactive": "Inactive",
+    "mustChangePassword": "Must change password",
+    "initialPassword": "Initial password",
+    "initialPasswordHint": "At least {min} characters. Hand it over in person or by WhatsApp — they will be asked to change it when they sign in.",
+    "newPassword": "New password",
+    "resetPassword": "Set password",
+    "create": "Add user",
+    "save": "Save",
+    "saving": "Saving…",
+    "lastLogin": "Last sign-in: {when}",
+    "neverLoggedIn": "Has not signed in yet.",
+    "roles": {
+      "admin": "Administrator",
+      "employee": "Employee",
+      "viewer": "Read-only"
+    },
+    "locales": {
+      "es": "Spanish",
+      "en": "English"
+    },
+    "messages": {
+      "userCreated": "User added.",
+      "userUpdated": "Changes saved.",
+      "passwordReset": "Password set. They will be asked to change it when they sign in."
+    },
+    "errors": {
+      "invalid": "Check the details you entered.",
+      "required": "This field is required.",
+      "taken": "An account with that email already exists.",
+      "notFound": "We could not find that user.",
+      "lastAdmin": "At least one active administrator must remain.",
+      "too_short": "It is too short.",
+      "too_common": "It is too easy to guess.",
+      "unchanged": "Choose a password different from the current one."
+    }
   }
 }

@@ -17,5 +17,101 @@
     "body": "Presupuestos, facturas, notas de crédito y pagos en guaraníes — con timbrado, IVA por tasa y envío por WhatsApp.",
     "status": "Andamiaje listo. La base de datos llega en el PR-2.",
     "switchTo": "Ver en inglés"
+  },
+  "login": {
+    "eyebrow": "facturar",
+    "title": "Ingresá a tu cuenta",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "submit": "Ingresar",
+    "submitting": "Ingresando…",
+    "forgotPassword": "¿Olvidaste tu contraseña? Pedile al administrador de tu empresa que te cargue una nueva.",
+    "errors": {
+      "invalidCredentials": "Correo o contraseña incorrectos.",
+      "required": "Completá este campo."
+    }
+  },
+  "admin": {
+    "logout": "Salir",
+    "nav": {
+      "users": "Usuarios"
+    },
+    "roles": {
+      "admin": "Administrador",
+      "employee": "Empleado",
+      "viewer": "Solo lectura"
+    },
+    "dashboard": {
+      "eyebrow": "Panel",
+      "greeting": "Hola, {name}",
+      "body": "Acá va a estar lo que necesita tu atención hoy: facturas vencidas, presupuestos por seguir y avisos de timbrado. Llega en el PR-5."
+    }
+  },
+  "changePassword": {
+    "eyebrow": "Tu cuenta",
+    "title": "Cambiar contraseña",
+    "body": "Cambiá tu contraseña cuando quieras.",
+    "forced": "Un administrador cargó una contraseña nueva para tu cuenta. Elegí una propia para seguir.",
+    "currentPassword": "Contraseña actual",
+    "newPassword": "Contraseña nueva",
+    "confirmPassword": "Repetí la contraseña nueva",
+    "hint": "Mínimo {min} caracteres.",
+    "submit": "Guardar contraseña",
+    "submitting": "Guardando…",
+    "errors": {
+      "invalid": "No pudimos cambiar la contraseña. Revisá los datos.",
+      "required": "Completá este campo.",
+      "wrong": "La contraseña actual no coincide.",
+      "mismatch": "Las contraseñas no coinciden.",
+      "too_short": "Es demasiado corta.",
+      "too_common": "Es demasiado fácil de adivinar.",
+      "unchanged": "Elegí una contraseña distinta a la actual."
+    }
+  },
+  "users": {
+    "eyebrow": "Ajustes",
+    "title": "Usuarios",
+    "body": "Cargá a tu equipo y definí qué puede hacer cada uno. Los permisos se verifican en el servidor, no solo en pantalla.",
+    "createTitle": "Agregar usuario",
+    "name": "Nombre",
+    "email": "Correo electrónico",
+    "role": "Rol",
+    "uiLocale": "Idioma de la interfaz",
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "mustChangePassword": "Debe cambiar la contraseña",
+    "initialPassword": "Contraseña inicial",
+    "initialPasswordHint": "Mínimo {min} caracteres. Pasásela en persona o por WhatsApp: se le va a pedir que la cambie al ingresar.",
+    "newPassword": "Contraseña nueva",
+    "resetPassword": "Cargar contraseña",
+    "create": "Agregar usuario",
+    "save": "Guardar",
+    "saving": "Guardando…",
+    "lastLogin": "Último ingreso: {when}",
+    "neverLoggedIn": "Todavía no ingresó.",
+    "roles": {
+      "admin": "Administrador",
+      "employee": "Empleado",
+      "viewer": "Solo lectura"
+    },
+    "locales": {
+      "es": "Español",
+      "en": "Inglés"
+    },
+    "messages": {
+      "userCreated": "Usuario agregado.",
+      "userUpdated": "Cambios guardados.",
+      "passwordReset": "Contraseña cargada. Se le va a pedir que la cambie al ingresar."
+    },
+    "errors": {
+      "invalid": "Revisá los datos cargados.",
+      "required": "Completá este campo.",
+      "taken": "Ya hay una cuenta con ese correo.",
+      "notFound": "No encontramos ese usuario.",
+      "lastAdmin": "Tiene que quedar al menos un administrador activo.",
+      "too_short": "Es demasiado corta.",
+      "too_common": "Es demasiado fácil de adivinar.",
+      "unchanged": "Elegí una contraseña distinta a la actual."
+    }
   }
 }
