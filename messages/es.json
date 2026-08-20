@@ -514,7 +514,8 @@
       "negative": "El precio no puede ser negativo.",
       "too_large": "Ese importe es demasiado grande.",
       "positive": "Tiene que ser mayor que cero."
-    }
+    },
+    "history": "Historial"
   },
   "documentPdf": {
     "quote": "Presupuesto",
@@ -688,7 +689,8 @@
     },
     "paid": "Cobrado",
     "credited": "Acreditado",
-    "outstanding": "Pendiente"
+    "outstanding": "Pendiente",
+    "history": "Historial"
   },
   "payments": {
     "eyebrow": "Cobranzas",
@@ -803,6 +805,39 @@
       "blocked_range_exhausted": "Se acabaron los números autorizados de ese timbrado.",
       "blocked_sequence_out_of_range": "La numeración quedó fuera del rango autorizado.",
       "blocked_inactive": "Ese timbrado está desactivado."
+    }
+  },
+  "send": {
+    "sendEmailTo": "Mandar por correo a {email}",
+    "sending": "Enviando…",
+    "emailDisabled": "El envío por correo todavía no está configurado. Usá WhatsApp o el enlace.",
+    "noEmail": "Este cliente no tiene correo cargado.",
+    "messages": {
+      "emailSent": "Correo enviado."
+    },
+    "errors": {
+      "invalid": "Algo salió mal.",
+      "notFound": "No encontramos el documento.",
+      "noEmail": "Este cliente no tiene correo cargado.",
+      "noLink": "Este documento no tiene enlace público.",
+      "noBaseUrl": "Falta configurar NEXT_PUBLIC_APP_URL.",
+      "emailDisabled": "El envío por correo no está configurado.",
+      "email_disabled": "El envío por correo no está configurado.",
+      "email_rejected": "El proveedor rechazó el envío. Revisá el correo del cliente.",
+      "email_network": "No pudimos conectar con el proveedor de correo. Probá de nuevo."
+    }
+  },
+  "history": {
+    "empty": "Todavía no pasó nada con este documento.",
+    "actions": {
+      "created": "Creado",
+      "updated": "Modificado",
+      "issued": "Emitido",
+      "sent_whatsapp": "Enviado por WhatsApp",
+      "sent_email": "Enviado por correo",
+      "paid": "Pago registrado",
+      "credited": "Nota de crédito emitida",
+      "deleted": "Eliminado"
     }
   }
 }

@@ -29,6 +29,12 @@ import { isDocumentEditable, isIssuable, isIssued, isOverdue } from "@/domain/do
 import { previewNextNumber } from "@/domain/numbering";
 import { timbradoStatus } from "@/domain/timbrado";
 import { waMeLink } from "@/domain/whatsapp";
+import { DocumentHistory } from "@/components/documents/history";
+import {
+  EmailSendForm,
+  WhatsappSendLink,
+} from "@/components/documents/send-controls";
+import { emailEnabled } from "@/lib/email/send";
 import { creditableAmount } from "@/domain/payments";
 import { statusTone } from "../../presupuestos/status";
 import { CreditNoteForm } from "../credit-note-form";
@@ -431,7 +437,8 @@ export default async function InvoiceDetailPage({
                     {t("openPublicLink")}
                   </a>
                   {full.customer?.whatsapp ? (
-                    <a
+                    <WhatsappSendLink
+                      documentId={full.document.id}
                       href={waMeLink(
                         full.customer.whatsapp,
                         share("invoice", {
@@ -443,16 +450,24 @@ export default async function InvoiceDetailPage({
                           link: publicUrl,
                         }),
                       )}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex min-h-11 items-center justify-center rounded-sm bg-accent px-[var(--s-4)] text-[length:var(--t--1)] font-medium text-accent-contrast no-underline"
-                    >
-                      {t("sendWhatsapp")}
-                    </a>
+                      label={t("sendWhatsapp")}
+                    />
+                  ) : null}
+                  {mayWrite ? (
+                    <EmailSendForm
+                      documentId={full.document.id}
+                      to={full.customer?.email ?? null}
+                      enabled={emailEnabled()}
+                    />
                   ) : null}
                 </>
               ) : null}
             </div>
+          </Card>
+
+          <Card variant="hair">
+            <p className="eyebrow m-0 mb-[var(--s-3)]">{t("history")}</p>
+            <DocumentHistory tenantId={session.tenantId} documentId={full.document.id} />
           </Card>
 
           {full.document.relatedDocumentId ? (

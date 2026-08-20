@@ -24,6 +24,12 @@ import {
   isQuoteEditable,
 } from "@/domain/documents";
 import { waMeLink } from "@/domain/whatsapp";
+import { DocumentHistory } from "@/components/documents/history";
+import {
+  EmailSendForm,
+  WhatsappSendLink,
+} from "@/components/documents/send-controls";
+import { emailEnabled } from "@/lib/email/send";
 import { QUOTE_STATUSES } from "@/domain/documents";
 import type { DocumentStatus } from "@/db/schema";
 import { QuoteForm } from "../quote-form";
@@ -280,14 +286,18 @@ export default async function QuoteDetailPage({
                     {t("openPublicLink")}
                   </a>
                   {full.customer?.whatsapp && shareText ? (
-                    <a
+                    <WhatsappSendLink
+                      documentId={full.document.id}
                       href={waMeLink(full.customer.whatsapp, shareText)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex min-h-11 items-center justify-center rounded-sm bg-accent px-[var(--s-4)] text-[length:var(--t--1)] font-medium text-accent-contrast no-underline"
-                    >
-                      {t("sendWhatsapp")}
-                    </a>
+                      label={t("sendWhatsapp")}
+                    />
+                  ) : null}
+                  {mayWrite ? (
+                    <EmailSendForm
+                      documentId={full.document.id}
+                      to={full.customer?.email ?? null}
+                      enabled={emailEnabled()}
+                    />
                   ) : null}
                   {baseUrl === "" ? (
                     <p className="m-0 text-[length:var(--t--1)] text-warn">
@@ -308,6 +318,11 @@ export default async function QuoteDetailPage({
               <ConvertQuoteAction documentId={full.document.id} />
             </Card>
           ) : null}
+
+          <Card variant="hair">
+            <p className="eyebrow m-0 mb-[var(--s-3)]">{t("history")}</p>
+            <DocumentHistory tenantId={session.tenantId} documentId={full.document.id} />
+          </Card>
 
           {conversion ? (
             <Card variant="hair">
