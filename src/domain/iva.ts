@@ -57,6 +57,31 @@ export type DocumentTotals = {
   total: number;
 };
 
+/**
+ * Parse a quantity a human typed ("2", "1,5", "0,25") into the fixed-point
+ * ×1000 integer the schema stores. es-PY writes decimals with a comma and
+ * thousands with a dot, exactly as `parseAmount` reads money.
+ *
+ * @throws on anything unreadable — the caller maps that to a field error.
+ */
+export function parseQty(input: string): number {
+  const trimmed = input.trim();
+  if (trimmed === "") throw new Error("Empty quantity");
+
+  const negative = trimmed.startsWith("-");
+  const cleaned = trimmed.replace(/[^\d.,]/g, "").replace(/\./g, "").replace(",", ".");
+
+  if (cleaned === "" || !/^\d*(\.\d*)?$/.test(cleaned)) {
+    throw new Error(`Cannot read "${input}" as a quantity`);
+  }
+
+  const value = Number(cleaned);
+  if (!Number.isFinite(value)) throw new Error(`Cannot read "${input}" as a quantity`);
+
+  const scaled = roundHalfAwayFromZero(value * QTY_SCALE);
+  return negative ? -scaled : scaled;
+}
+
 /** Numeric percentage for a rate. `exenta` is 0. */
 export function ratePercent(taxRate: TaxRate): number {
   return taxRate === "exenta" ? 0 : Number(taxRate);

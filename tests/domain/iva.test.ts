@@ -7,6 +7,7 @@ import {
   ratePercent,
   totalsAreConsistent,
   totalsAsMoney,
+  parseQty,
   type LineInput,
 } from "@/domain/iva";
 import { MoneyError } from "@/domain/money";
@@ -261,5 +262,35 @@ describe("totalsAreConsistent", () => {
     );
     expect(totalsAreConsistent({ ...totals, total: totals.total + 1 })).toBe(false);
     expect(totalsAreConsistent({ ...totals, ivaTotal: totals.ivaTotal + 1 })).toBe(false);
+  });
+});
+
+describe("parseQty", () => {
+  it("reads whole and decimal quantities as fixed-point ×1000", () => {
+    expect(parseQty("1")).toBe(1_000);
+    expect(parseQty("10")).toBe(10_000);
+    expect(parseQty("1,5")).toBe(1_500);
+    expect(parseQty("0,25")).toBe(250);
+    expect(parseQty("  2  ")).toBe(2_000);
+  });
+
+  it("reads es-PY thousands separators", () => {
+    expect(parseQty("1.200")).toBe(1_200_000);
+  });
+
+  it("rounds past the third decimal rather than storing a float", () => {
+    expect(parseQty("0,3333")).toBe(333);
+    expect(parseQty("0,0005")).toBe(1);
+    expect(Number.isInteger(parseQty("1,3333"))).toBe(true);
+  });
+
+  it("keeps a negative sign — the caller decides whether that is allowed", () => {
+    expect(parseQty("-2")).toBe(-2_000);
+  });
+
+  it("refuses anything unreadable", () => {
+    for (const input of ["", "   ", "dos", "1,2,3"]) {
+      expect(() => parseQty(input), input).toThrow();
+    }
   });
 });

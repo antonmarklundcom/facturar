@@ -19,6 +19,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@react-pdf/renderer": "^4.6.1",
     "bcryptjs": "^3.0.3",
     "drizzle-orm": "^0.45.2",
     "iron-session": "^8.0.4",
