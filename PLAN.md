@@ -160,7 +160,7 @@ Apply `web-design-system`; no pricing page in v1. Must not pull the authenticate
 | 10 | Invoices | **merged** |
 | 11 | Credit notes + payments | **merged** |
 | 12 | Send flows | **merged** |
-| 13 | Dashboard + reports | pending |
+| 13 | Dashboard + reports | **merged** |
 | 14 | Seed + polish | pending |
 | 15 | Landing page | pending |
 
@@ -328,6 +328,34 @@ Carried into later PRs rather than fixed in place:
 - **Not verified against a live database or a real Resend account.** The provider call is
   covered by tests with `fetch` stubbed (disabled, success, rejection, network failure,
   and that the key never leaves the Authorization header).
+
+## PR-13 notes (recorded 2026-08-20)
+
+- **The report figures are computed in `src/domain/reports.ts`, not in SQL.** The database
+  could group and sum this perfectly well, but these are the numbers a tax return is
+  built from, so they live where they can be asserted exactly and next to the per-line
+  rounding rules they have to agree with.
+- **Currencies are never mixed.** A period with PYG and USD documents reports two
+  summaries; the dashboard tiles show the tenant's own currency only. A converted total
+  would be a guess about a rate nobody recorded.
+- **A credit note subtracts** from every figure, which is what it does to the tax owed —
+  and a period that credits more than it invoices reports negative figures rather than
+  clamping them to zero. An invoice already `anulada` is skipped so the credit note does
+  not subtract it twice.
+- **CSV uses `;` and a BOM**, and writes amounts as plain integers of minor units with the
+  currency in its own column: Excel in an es-PY locale does not split on commas, and a
+  spreadsheet should get numbers it can sum. Cells starting `=`, `+`, `-` or `@` are
+  prefixed with an apostrophe so an exported customer name can never execute.
+- **The period is in the URL**, so a report can be bookmarked or sent to an accountant as
+  a link, and the screen and the CSV are built from the same rows.
+- **The dashboard reads action-first**: overdue money, then quotes about to expire, then
+  the timbrado. Balances for the unpaid list are fetched in three queries rather than
+  three per invoice.
+- **The "upcoming sections" strip in the shell is gone** — every section named in it now
+  has a route.
+- **PR-14 is the last build PR**: seed, empty/loading states, mobile QA and the
+  no-hardcoded-strings grep gate. PR-15 (landing page) can now take a real screenshot of
+  a working invoice.
 
 ## v1.1 backlog (decided, deliberately not in v1)
 

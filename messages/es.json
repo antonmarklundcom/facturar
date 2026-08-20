@@ -136,20 +136,36 @@
     "greeting": "Hola, {name}",
     "intro": "Acá vas a ver lo que necesita tu atención hoy: facturas vencidas, presupuestos por seguir y avisos de timbrado.",
     "tiles": {
-      "today": "Para hoy",
-      "nothingYet": "Nada pendiente",
-      "todayHint": "Las facturas vencidas y los presupuestos por seguir aparecen acá cuando empieces a emitir documentos.",
+      "overdue": "Vencido sin cobrar",
+      "overdueHint": "{count} facturas vencidas.",
       "outstanding": "Por cobrar",
-      "outstandingHint": "Saldo pendiente de tus facturas emitidas."
+      "outstandingHint": "{count} facturas abiertas."
     },
     "empty": {
-      "title": "Todavía no hay documentos",
-      "body": "Cuando cargues clientes y emitas presupuestos o facturas, el movimiento del día se muestra en esta pantalla."
+      "title": "No hay nada urgente hoy",
+      "body": "Ninguna factura vencida y ningún presupuesto esperando respuesta. Buen momento para cargar uno nuevo."
     },
     "setup": {
       "title": "Cargá tu timbrado para poder facturar",
       "body": "Sin un timbrado vigente no se puede emitir ninguna factura. Cargá el número, la vigencia y el rango autorizado.",
       "cta": "Cargar timbrado"
+    },
+    "overdue": {
+      "title": "Facturas vencidas",
+      "all": "Ver todas",
+      "due": "venció el {date}",
+      "badge": "Vencida",
+      "draft": "Sin numerar"
+    },
+    "quotes": {
+      "title": "Presupuestos esperando respuesta",
+      "all": "Ver todos",
+      "daysLeft": "{days} días de validez",
+      "noExpiry": "Sin fecha de validez",
+      "status": {
+        "borrador": "Borrador",
+        "enviado": "Enviado"
+      }
     }
   },
   "settings": {
@@ -838,6 +854,41 @@
       "paid": "Pago registrado",
       "credited": "Nota de crédito emitida",
       "deleted": "Eliminado"
+    }
+  },
+  "reports": {
+    "eyebrow": "Informes",
+    "title": "Informes",
+    "intro": "La liquidación del IVA y las ventas del período, tal como se las pasás a tu contador.",
+    "period": "Período",
+    "from": "Desde",
+    "to": "Hasta",
+    "apply": "Aplicar",
+    "presets": {
+      "thisMonth": "Este mes",
+      "lastMonth": "Mes pasado",
+      "thisYear": "Este año"
+    },
+    "ivaTitle": "Liquidación del IVA · {currency}",
+    "documentsCounted": "{invoices} facturas · {creditNotes} notas de crédito",
+    "gravadas10": "Gravadas 10%",
+    "gravadas5": "Gravadas 5%",
+    "exentas": "Exentas",
+    "iva10": "IVA 10%",
+    "iva5": "IVA 5%",
+    "ivaTotal": "Total IVA",
+    "total": "Total facturado",
+    "salesTitle": "Ventas por mes",
+    "month": "Mes",
+    "currency": "Moneda",
+    "documents": "Documentos",
+    "exportTitle": "Exportar",
+    "exportHint": "Los archivos usan punto y coma y se abren directo en Excel. Los importes van sin formato, para que se puedan sumar.",
+    "exportIva": "Descargar el resumen de IVA",
+    "exportDocuments": "Descargar el detalle de documentos",
+    "empty": {
+      "title": "No hay documentos emitidos en este período",
+      "body": "Cambiá el período o emití una factura: los presupuestos y los borradores no entran en el informe."
     }
   }
 }

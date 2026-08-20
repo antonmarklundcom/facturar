@@ -136,20 +136,36 @@
     "greeting": "Hello, {name}",
     "intro": "This is where what needs your attention today lives: overdue invoices, quotes to follow up and timbrado warnings.",
     "tiles": {
-      "today": "For today",
-      "nothingYet": "Nothing pending",
-      "todayHint": "Overdue invoices and quotes awaiting follow-up appear here once you start issuing documents.",
+      "overdue": "Overdue and uncollected",
+      "overdueHint": "{count} overdue invoices.",
       "outstanding": "Outstanding",
-      "outstandingHint": "Unpaid balance across your issued invoices."
+      "outstandingHint": "{count} open invoices."
     },
     "empty": {
-      "title": "No documents yet",
-      "body": "Once you add customers and issue quotes or invoices, the day's activity shows up on this screen."
+      "title": "Nothing urgent today",
+      "body": "No overdue invoices and no quotes waiting. A good moment to write a new one."
     },
     "setup": {
       "title": "Add your timbrado before you invoice",
       "body": "No invoice can be issued without a valid timbrado. Add its number, validity window and authorised range.",
       "cta": "Add timbrado"
+    },
+    "overdue": {
+      "title": "Overdue invoices",
+      "all": "See all",
+      "due": "was due {date}",
+      "badge": "Overdue",
+      "draft": "Not numbered"
+    },
+    "quotes": {
+      "title": "Quotes awaiting an answer",
+      "all": "See all",
+      "daysLeft": "{days} days of validity left",
+      "noExpiry": "No validity date",
+      "status": {
+        "borrador": "Draft",
+        "enviado": "Sent"
+      }
     }
   },
   "settings": {
@@ -838,6 +854,41 @@
       "paid": "Payment recorded",
       "credited": "Credit note issued",
       "deleted": "Deleted"
+    }
+  },
+  "reports": {
+    "eyebrow": "Reports",
+    "title": "Reports",
+    "intro": "The IVA liquidation and the period's sales, in the shape your accountant asks for.",
+    "period": "Period",
+    "from": "From",
+    "to": "To",
+    "apply": "Apply",
+    "presets": {
+      "thisMonth": "This month",
+      "lastMonth": "Last month",
+      "thisYear": "This year"
+    },
+    "ivaTitle": "IVA liquidation · {currency}",
+    "documentsCounted": "{invoices} invoices · {creditNotes} credit notes",
+    "gravadas10": "Taxed at 10%",
+    "gravadas5": "Taxed at 5%",
+    "exentas": "Exempt",
+    "iva10": "IVA 10%",
+    "iva5": "IVA 5%",
+    "ivaTotal": "Total IVA",
+    "total": "Total invoiced",
+    "salesTitle": "Sales by month",
+    "month": "Month",
+    "currency": "Currency",
+    "documents": "Documents",
+    "exportTitle": "Export",
+    "exportHint": "The files are semicolon-separated and open straight in Excel. Amounts are unformatted so they can be summed.",
+    "exportIva": "Download the IVA summary",
+    "exportDocuments": "Download the document detail",
+    "empty": {
+      "title": "No documents were issued in this period",
+      "body": "Change the period or issue an invoice — quotes and drafts do not appear in the report."
     }
   }
 }

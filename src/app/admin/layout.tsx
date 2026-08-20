@@ -46,12 +46,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/presupuestos", label: t("nav.quotes"), icon: <QuotesIcon /> },
     { href: "/admin/facturas", label: t("nav.invoices"), icon: <InvoicesIcon /> },
     { href: "/admin/pagos", label: t("nav.payments"), icon: <PaymentsIcon /> },
+    { href: "/admin/informes", label: t("nav.reports"), icon: <ReportsIcon /> },
   ];
 
-  // PR-13 adds the reports entry when that route appears.
-  const upcoming: { label: string; icon: React.ReactNode }[] = [
-    { label: t("nav.reports"), icon: <ReportsIcon /> },
-  ];
+  // Every section of the app now has a route of its own.
+  const upcoming: { label: string; icon: React.ReactNode }[] = [];
 
   if (can(session.role, "tenant.manage")) {
     items.push({ href: "/admin/ajustes", label: t("nav.settings"), icon: <SettingsIcon /> });
@@ -100,6 +99,9 @@ function UpcomingSections({
   items: { label: string; icon: React.ReactNode }[];
   label: string;
 }) {
+  // Phase B finished the list; the strip disappears rather than sitting empty.
+  if (items.length === 0) return null;
+
   return (
     <section className="mt-[var(--s-16)] border-t border-hairline pt-[var(--s-6)]">
       <p className="eyebrow m-0 mb-[var(--s-3)]">{label}</p>
