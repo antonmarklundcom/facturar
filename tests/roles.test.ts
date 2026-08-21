@@ -15,6 +15,9 @@ const EXPECTED: Record<Capability, Role[]> = {
   "documents.write": ["admin", "employee"],
   "documents.issue": ["admin", "employee"],
   "payments.write": ["admin", "employee"],
+  // Deleting a recorded payment is admin-only, one step above recording one:
+  // it rewrites what an invoice appears to have been paid (PR-17).
+  "payments.delete": ["admin"],
   "drafts.delete.any": ["admin"],
   "drafts.delete.own": ["admin", "employee"],
   "documents.mutateIssued": [],
@@ -41,6 +44,7 @@ describe("viewer cannot mutate anything", () => {
     "documents.write",
     "documents.issue",
     "payments.write",
+    "payments.delete",
     "drafts.delete.any",
     "drafts.delete.own",
     "documents.mutateIssued",

@@ -164,6 +164,7 @@ Apply `web-design-system`; no pricing page in v1. Must not pull the authenticate
 | 14 | Seed + polish | **merged** |
 | 15 | Landing page | **merged** |
 | 16 | Login rate limiting | **merged** |
+| 17 | Payment correction | **merged** |
 
 ## Phase A notes (recorded 2026-08-20)
 
@@ -301,6 +302,7 @@ Carried into later PRs rather than fixed in place:
   choice rather than silently mis-scaling the amount.
 - **Payments cannot currently be deleted or edited.** A mistyped payment has no undo yet;
   that is the first thing to add if a pilot hits it (admin-only delete + activity log).
+  *(Closed by PR-17 — delete only, no edit.)*
 - **PR-13 can reuse** `invoiceBalance()` and `listRecentPayments()` as they stand; the IVA
   report will want a per-period aggregate over `documents` instead.
 - **Still not run against a live database.** The transactional paths (issue, credit-note
@@ -507,6 +509,52 @@ locked-out attempt with the correct password still fails.
 - **Not wired to any alerting.** A lockout is invisible unless someone reads the table.
   When Sentry lands (v1.1, decision 20), a repeated lockout on one address is the first
   thing worth an event.
+
+### PR-17 Payment correction
+Admin-only deletion of a recorded payment, written to `activity_log`, with the invoice's status
+re-derived through `refreshInvoiceStatus()`. No editing: delete-and-re-record is one path rather
+than two. Issued documents stay immutable — this touches payments only.
+**Depends:** PR-11 · **Accept:** tests for the status re-derivation after a delete
+(pagada → parcial → pendiente).
+
+## PR-17 notes (recorded 2026-08-21)
+
+- **Delete, never edit — and that is the feature, not a shortcut.** An edit path would need
+  its own validation, its own re-derivation and its own log entry claiming the payment had
+  always been what it now says. Delete-and-re-record is one path instead of two, and it
+  leaves the history saying what actually happened: this was taken back, that was entered.
+- **A payment is not a document.** Guardrail 4 is untouched: the issued invoice keeps its
+  number, its totals, its IVA breakdown and its PDF snapshot. What changes is the record of
+  what was received against it — an observation about the world, which can be observed
+  wrongly — and the status that record implies. `tests/payments.db.test.ts` pins that every
+  other column on the row is identical before and after.
+- **Admin-only** (`payments.delete`), one step above `payments.write`: recording a payment
+  states something happened, deleting one rewrites what an invoice appears to have been paid.
+  The matrix in `tests/roles.test.ts` is typed as `Record<Capability, Role[]>`, so adding the
+  capability made the test fail to compile until it was transcribed there deliberately —
+  which is exactly what that table is for.
+- **The document id comes from the stored row, never from the form.** Otherwise a crafted
+  submission could delete a payment in one tenant and point the status refresh at another
+  invoice. The read is tenant-scoped, so another tenant's payment is simply not found.
+- **A second delete of the same payment is reported, not logged.** Two admins in two tabs:
+  the outcome they wanted has happened, but the action must not go on to write a deletion
+  this request did not perform. `deletePayment()` returns whether it actually removed a row.
+- **`scripts/qa.mjs` is now 37 checks**, three of them new: an admin records a payment and
+  deletes it (with the confirm dialog), the deletion appears in the document history, and an
+  employee sees the payments panel with no delete button beside it.
+- **Two bugs in the QA check itself, both found by running it** — worth recording because
+  the same shapes will recur:
+  1. It clicked the *last* delete button, and payments render newest-first, so it deleted a
+     seeded payment and left its own behind. The count assertion still passed. It now finds
+     the row by its own distinctive amount, never by position.
+  2. The login-limiter check cleared only the email counter, so the IP counter accumulated
+     across runs and the fourth pass inside the window was locked out of the login form
+     entirely (25 failures against a limit of 20). It now clears both scopes, bounded to
+     rows it touched. **A QA check that writes must clean up everything it wrote, not just
+     the obvious row.**
+- **Not offered on the payments list screen**, only on the invoice. A payment only means
+  something next to the invoice it was received against, and that is where the balance and
+  the history are.
 
 ## v1.1 backlog (decided, deliberately not in v1)
 

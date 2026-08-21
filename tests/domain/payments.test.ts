@@ -223,3 +223,53 @@ describe("PAYMENT_METHOD_ORDER", () => {
     expect([...PAYMENT_METHOD_ORDER].sort()).toEqual([...paymentMethodValues].sort());
   });
 });
+
+/**
+ * Undoing a payment (PR-17). A recorded payment can now be deleted, and the
+ * invoice's status is re-derived from what is left — the same function that
+ * derives it after a payment is recorded, run again over a shorter list.
+ *
+ * The walk back down the ladder is the part worth pinning: deleting the
+ * payment that settled an invoice must not leave it saying `pagada`.
+ */
+describe("re-deriving status after a payment is deleted", () => {
+  /** Not yet due, so the calendar never enters into it. */
+  const invoice = { ...base, today: "2026-09-01" };
+  const status = (payments: readonly { amount: number; currency: "PYG" }[]) =>
+    derivePaymentStatus({ ...invoice, paid: paidTotal(payments) });
+
+  const first = { amount: 700_000, currency: "PYG" } as const;
+  const second = { amount: 400_000, currency: "PYG" } as const;
+
+  it("walks pagada → parcial → pendiente as payments are removed", () => {
+    expect(status([first, second])).toBe("pagada");
+    // Delete the ₲ 400.000: ₲ 700.000 of ₲ 1.100.000 remains paid.
+    expect(status([first])).toBe("parcial");
+    // Delete the other one too, and the invoice is owed in full again.
+    expect(status([])).toBe("pendiente");
+  });
+
+  it("does not care which of the two is deleted", () => {
+    expect(status([second])).toBe("parcial");
+  });
+
+  it("falls back to vencida, not pendiente, when the due date has passed", () => {
+    // `vencida` outranks `parcial` (see above), and deleting the payment that
+    // settled a late invoice must surface it as a collections problem again
+    // rather than as a quiet `pendiente`.
+    const late = { ...base, today: TODAY };
+
+    expect(derivePaymentStatus({ ...late, paid: 1_100_000 })).toBe("pagada");
+    expect(derivePaymentStatus({ ...late, paid: 700_000 })).toBe("vencida");
+    expect(derivePaymentStatus({ ...late, paid: 0 })).toBe("vencida");
+  });
+
+  it("stays anulada when a credit note already covers the invoice", () => {
+    // Deleting a payment cannot revive an invoice a credit note has undone —
+    // the credit note is a document, and documents are immutable.
+    const voided = { ...invoice, credited: 1_100_000 };
+
+    expect(derivePaymentStatus({ ...voided, paid: 1_100_000 })).toBe("anulada");
+    expect(derivePaymentStatus({ ...voided, paid: 0 })).toBe("anulada");
+  });
+});

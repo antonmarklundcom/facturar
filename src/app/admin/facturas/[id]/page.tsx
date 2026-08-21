@@ -40,7 +40,7 @@ import { statusTone } from "../../presupuestos/status";
 import { CreditNoteForm } from "../credit-note-form";
 import { InvoiceForm } from "../invoice-form";
 import { IssueInvoiceForm, type TimbradoOption } from "../issue-form";
-import { PaymentForm } from "../payment-form";
+import { PaymentDeleteButton, PaymentForm } from "../payment-form";
 
 export async function generateMetadata({
   params,
@@ -87,6 +87,10 @@ export default async function InvoiceDetailPage({
   const mayWrite = can(session.role, "documents.write");
   const mayIssue = can(session.role, "documents.issue");
   const mayPay = can(session.role, "payments.write");
+  // Correcting a mistyped payment is a step above recording one: it rewrites
+  // what an invoice appears to have been paid, so it is admin-only (PR-17).
+  // The button below is UX; `requireRole` in the action is the boundary.
+  const mayDeletePayment = can(session.role, "payments.delete");
   const editable = mayWrite && isDocumentEditable(full.document);
 
   const [options, timbradoRows, balance, paymentRows, creditNotes] = await Promise.all([
@@ -300,13 +304,24 @@ export default async function InvoiceDetailPage({
                           {payment.reference ? ` · ${payment.reference}` : ""}
                         </span>
                       </span>
-                      <span className="tabular text-[length:var(--t--1)] text-ink-55">
-                        {formatDateTime(payment.paidAt)}
+                      <span className="flex items-center gap-[var(--s-3)]">
+                        <span className="tabular text-[length:var(--t--1)] text-ink-55">
+                          {formatDateTime(payment.paidAt)}
+                        </span>
+                        {mayDeletePayment ? (
+                          <PaymentDeleteButton paymentId={payment.id} />
+                        ) : null}
                       </span>
                     </li>
                   ))}
                 </ul>
               )}
+
+              {mayDeletePayment && paymentRows.length > 0 ? (
+                <p className="m-0 mb-[var(--s-5)] text-[length:var(--t--1)] text-ink-55">
+                  {payments("deleteHint")}
+                </p>
+              ) : null}
 
               {mayPay && balance.outstanding > 0 && balance.status !== "anulada" ? (
                 <PaymentForm

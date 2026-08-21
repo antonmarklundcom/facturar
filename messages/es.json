@@ -739,7 +739,8 @@
       "body": "Cuando cobres una factura, cargá el pago desde la factura y va a aparecer acá."
     },
     "messages": {
-      "paid": "Pago registrado."
+      "paid": "Pago registrado.",
+      "paymentDeleted": "Pago eliminado. El estado de la factura se actualizó."
     },
     "errors": {
       "invalid": "Revisá los datos marcados.",
@@ -754,8 +755,13 @@
       "payment_already_paid": "Esa factura ya está saldada.",
       "payment_exceeds_outstanding": "El importe supera lo que queda pendiente.",
       "payment_wrong_currency": "El pago tiene que ser en la moneda de la factura.",
-      "payment_not_positive": "El importe tiene que ser mayor que cero."
-    }
+      "payment_not_positive": "El importe tiene que ser mayor que cero.",
+      "notFoundPayment": "Ese pago ya no existe."
+    },
+    "delete": "Eliminar",
+    "deleting": "Eliminando…",
+    "deleteHint": "¿Cargaste mal un pago? Eliminalo y volvé a cargarlo. Queda registrado en el historial y el estado de la factura se recalcula solo. La factura no cambia.",
+    "deleteConfirm": "¿Eliminar este pago? Queda en el historial."
   },
   "creditNotes": {
     "eyebrow": "Ventas",

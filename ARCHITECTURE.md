@@ -58,6 +58,7 @@ All tables: `id`, `tenant_id`, `created_at`, `updated_at`, `updated_by` unless n
 | Tenant settings, timbrados, users | ✔ | ✖ | ✖ |
 | Create/edit customers, products, quotes | ✔ | ✔ | ✖ |
 | Issue invoices / credit notes, record payments | ✔ | ✔ | ✖ |
+| Delete a recorded payment (logged; status re-derived) | ✔ | ✖ | ✖ |
 | Delete drafts | ✔ | own only | ✖ |
 | Edit/delete issued documents | ✖ (nobody — immutable) | ✖ | ✖ |
 | View + export everything | ✔ | ✔ | ✔ |

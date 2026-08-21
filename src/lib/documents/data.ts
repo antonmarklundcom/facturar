@@ -704,6 +704,49 @@ export async function createAndIssueCreditNote(options: {
   });
 }
 
+/** One payment, scoped to the tenant. `null` when it belongs to another. */
+export async function findPayment(
+  tenantId: number,
+  paymentId: number,
+): Promise<Payment | null> {
+  const rows = await db
+    .select()
+    .from(payments)
+    .where(tenantScoped(payments, tenantId, eq(payments.id, paymentId)))
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+/**
+ * Remove a recorded payment (PR-17).
+ *
+ * This deletes a *payment*, never a document. An issued invoice stays
+ * byte-for-byte what it was (guardrail 4); what changes is the record of what
+ * has been received against it, which was only ever an observation about the
+ * world and can be observed wrongly. The caller re-derives the invoice's
+ * status afterwards and writes the deletion to `activity_log`, so the
+ * correction leaves a trail rather than erasing one.
+ *
+ * There is deliberately no *edit* path. Delete-and-re-record is one code path
+ * instead of two, and it leaves two honest entries in the log — "this was
+ * removed, that was added" — where an edit would leave one entry claiming a
+ * payment had always been what it now says.
+ *
+ * Returns false when the id belongs to another tenant or is already gone, so
+ * the caller can answer a stale form without a second query.
+ */
+export async function deletePayment(
+  tenantId: number,
+  paymentId: number,
+): Promise<boolean> {
+  const [result] = await db
+    .delete(payments)
+    .where(tenantScoped(payments, tenantId, eq(payments.id, paymentId)));
+
+  return result.affectedRows > 0;
+}
+
 export type RecentPayment = {
   payment: Payment;
   documentNumber: string | null;
