@@ -1,12 +1,21 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { logActivity } from "@/lib/activity";
 import { APP_PATH, CHANGE_PASSWORD_PATH, LOGIN_PATH } from "@/lib/auth/guards";
 import { fakeVerifyDelay, verifyPassword } from "@/lib/auth/password";
 import { getSession } from "@/lib/auth/session";
+import {
+  clearThrottle,
+  pruneStaleThrottles,
+  readThrottle,
+  recordFailure,
+} from "@/lib/auth/throttle";
 import { findLoginCandidate, markLoggedIn, normalizeEmail } from "@/lib/auth/users";
+import { parseClientIp } from "@/lib/client-ip";
 import { echo, field, formError, type FormState } from "@/lib/forms";
+import { loginRejected } from "@/domain/throttle";
 import { setUserLocale } from "@/i18n/locale";
 
 /**
@@ -44,22 +53,53 @@ export async function loginAction(
     return formError("invalidCredentials", fieldErrors, { values, previous });
   }
 
+  const now = new Date();
+  const requestHeaders = await headers();
+  const ip = parseClientIp(
+    requestHeaders.get("x-forwarded-for"),
+    requestHeaders.get("x-real-ip"),
+  );
+
+  // Read the limiter first, but do not act on it yet. A throttled attempt runs
+  // the whole credential check anyway and is rejected at the end, so it costs
+  // the same bcrypt comparison — and therefore takes the same time — as a
+  // wrong password. Short-circuiting here would turn the limiter into its own
+  // side channel.
+  const throttle = await readThrottle(email, ip, now);
+
   const candidate = await findLoginCandidate(email);
 
-  if (!candidate) {
-    // Spend the same time as a real comparison so response timing does not
-    // reveal which addresses have accounts.
+  // Spend the same time as a real comparison when the address has no account,
+  // so response timing does not reveal which addresses are real.
+  let passwordOk = false;
+  if (candidate) {
+    passwordOk = await verifyPassword(password, candidate.passwordHash);
+  } else {
     await fakeVerifyDelay();
+  }
+
+  // One generic answer for every way this can fail: wrong password, unknown
+  // address, deactivated account, and locked out. "This account is disabled"
+  // and "too many attempts" are both account-existence oracles, and the
+  // limiter must not become the thing that leaks what the rest of this
+  // function is careful not to. The domain owns that decision so the four
+  // cases cannot drift apart — including the one where a locked-out attempt
+  // carries the *correct* password and still fails.
+  if (
+    loginRejected({
+      locked: throttle.locked,
+      accountExists: candidate !== null,
+      passwordOk,
+      accountActive: candidate?.active ?? false,
+    })
+  ) {
+    await recordFailure(email, ip, throttle, now);
     return formError("invalidCredentials", undefined, { values, previous });
   }
 
-  const passwordOk = await verifyPassword(password, candidate.passwordHash);
-
-  // An inactive account gets the same generic answer as a wrong password —
-  // "this account is disabled" is an account-existence oracle.
-  if (!passwordOk || !candidate.active) {
-    return formError("invalidCredentials", undefined, { values, previous });
-  }
+  // `loginRejected` has already returned for a missing account; TypeScript
+  // cannot see that through the call, so this restates it. It is unreachable.
+  if (!candidate) return formError("invalidCredentials", undefined, { values, previous });
 
   const session = await getSession();
   session.userId = candidate.id;
@@ -74,6 +114,12 @@ export async function loginAction(
   // Adopt the user's stored UI language, so their preference wins over whatever
   // locale cookie this browser happened to be carrying.
   await setUserLocale(candidate.uiLocale);
+
+  // A successful login clears this address's failure count — a person who
+  // finally remembers their password should not stay locked out. The IP
+  // counter deliberately survives; see `clearThrottle`.
+  await clearThrottle(email);
+  await pruneStaleThrottles(now);
 
   await markLoggedIn(candidate.tenantId, candidate.id);
   await logActivity({

@@ -30,6 +30,7 @@ describe("schema shape", () => {
       "customers",
       "document_lines",
       "documents",
+      "login_throttle",
       "payments",
       "products",
       "tenants",
@@ -79,20 +80,44 @@ describe("guardrail 1 — money is integers", () => {
 });
 
 describe("guardrail 2 — tenancy", () => {
-  it("puts tenant_id on every table except tenants itself", () => {
+  /**
+   * Tables that legitimately carry no `tenant_id`, and why. Every entry is a
+   * hole in guardrail 2, so each one needs a reason written down here rather
+   * than discovered later in a diff.
+   */
+  const NO_TENANT_ID: Record<string, string> = {
+    tenants:
+      "its own primary key is the tenant id, so a tenant_id column would be a " +
+      "second copy of it that could disagree",
+    login_throttle:
+      "written before authentication, when there is no session and therefore no " +
+      "tenant; an address with no account has no tenant it could belong to, and " +
+      "looking one up to find out would be the account-existence oracle the " +
+      "login limiter exists to avoid",
+  };
+
+  it("puts tenant_id on every table except the documented exceptions", () => {
     for (const table of tables) {
       const name = getTableName(table);
       const hasTenantId = Object.values(getTableColumns(table)).some(
         (column) => column.name === "tenant_id",
       );
-      expect(hasTenantId, `${name} is missing tenant_id`).toBe(name !== "tenants");
+      expect(hasTenantId, `${name} is missing tenant_id`).toBe(!(name in NO_TENANT_ID));
+    }
+  });
+
+  it("keeps the tenant-less exception list honest", () => {
+    const names = tables.map(getTableName);
+    for (const [name, reason] of Object.entries(NO_TENANT_ID)) {
+      expect(names, `${name} no longer exists`).toContain(name);
+      expect(reason.length, `${name} has no reason`).toBeGreaterThan(40);
     }
   });
 
   it("leads every tenant-scoped index with tenant_id", () => {
     for (const table of tables) {
       const name = getTableName(table);
-      if (name === "tenants") continue;
+      if (name in NO_TENANT_ID) continue;
 
       for (const definition of getTableConfig(table).indexes) {
         const columns = definition.config.columns;

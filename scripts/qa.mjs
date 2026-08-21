@@ -2,8 +2,9 @@
  * End-to-end QA pass (PR-14): the checks that only a real browser against a
  * real database can make — login, every screen rendering seeded data, the
  * immutability of an issued invoice, the PDF and the buyer link with no
- * session, the CSV export, a viewer seeing no mutating forms, and no
- * horizontal scroll anywhere at 390 px.
+ * session, the CSV export, a viewer seeing no mutating forms, the login
+ * limiter refusing a correct password during a lockout, and no horizontal
+ * scroll anywhere at 390 px.
  *
  * It is not part of the pre-push gate: it needs a running server, a seeded
  * database and a browser, none of which belong in a hook. Run it by hand
@@ -12,7 +13,12 @@
  *   npm run db:seed -- --reset
  *   npm run build && npm run start &
  *   npx playwright@1 install-deps 2>/dev/null || true
- *   node scripts/qa.mjs
+ *   DATABASE_URL=... node scripts/qa.mjs
+ *
+ * `DATABASE_URL` is only needed by the login-limiter check, which locks the
+ * demo admin out on purpose and clears the counter afterwards. Without it that
+ * one check is skipped rather than leaving the account locked for a quarter of
+ * an hour.
  *
  * `playwright` is deliberately **not** a dependency of this app — it would
  * add hundreds of megabytes to a Hostinger deploy for a script nobody runs in
@@ -182,6 +188,66 @@ for (const path of ["/admin", "/admin/clientes", "/admin/productos", "/admin/fac
   });
   if (overflow.slack > 1) fail(`no horizontal scroll at 390px ${path}`, `${overflow.slack}px ${overflow.culprit}`);
   else pass(`no horizontal scroll at 390px ${path}`);
+}
+
+// Login rate limiting (PR-16). Five wrong passwords lock the address out, and
+// the sixth attempt fails **with the correct password** — the property the
+// whole feature exists for, and one only a browser driving the real form can
+// observe end to end.
+//
+// This deliberately locks the demo admin out, so it needs DATABASE_URL to
+// clear the counter afterwards. Without one it is skipped rather than left
+// behind for the next fifteen minutes.
+const throttleDbUrl = process.env.DATABASE_URL;
+if (!throttleDbUrl) {
+  results.push("skip login rate limiting (set DATABASE_URL so the lockout can be cleared)");
+} else {
+  const attacker = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const attackerPage = await attacker.newPage();
+  const attempt = async (password) => {
+    await attackerPage.goto(`${BASE}/login`, { waitUntil: "networkidle" });
+    await attackerPage.fill("#email", "admin@sanblas.com.py");
+    await attackerPage.fill("#password", password);
+    await attackerPage.click('button[type="submit"]');
+    await attackerPage.waitForTimeout(1200);
+    return attackerPage.url();
+  };
+
+  const errorText = async () =>
+    (await attackerPage.locator("main").innerText()).replace(/\s+/g, " ");
+
+  await attempt("definitely-wrong-0");
+  // What a plain wrong password says, before any limit is reached.
+  const normalError = await errorText();
+  for (let i = 1; i < 5; i += 1) await attempt(`definitely-wrong-${i}`);
+
+  const lockedUrl = await attempt("FerreteriaDemo2026");
+  if (!lockedUrl.includes("/login")) {
+    fail("login rate limiting", "correct password still logged in while locked out");
+  } else pass("login rate limiting: correct password refused while locked out");
+
+  // The refusal must be word-for-word the error a plain wrong password gets.
+  // A distinct "too many attempts" notice would tell an attacker that the
+  // address is real and worth attacking. Compared against the live page
+  // rather than a hardcoded string, so it holds in either language.
+  const lockedText = await errorText();
+  if (lockedText !== normalError) {
+    fail("login rate limiting message", `differs from a plain wrong password: ${lockedText.slice(0, 160)}`);
+  } else pass("login rate limiting: same generic error, no lockout notice");
+
+  const mysql = await import("mysql2/promise");
+  const connection = await mysql.createConnection(throttleDbUrl);
+  await connection.execute("DELETE FROM login_throttle WHERE identifier = ?", [
+    "admin@sanblas.com.py",
+  ]);
+  await connection.end();
+
+  const clearedUrl = await attempt("FerreteriaDemo2026");
+  if (!clearedUrl.endsWith("/admin")) {
+    fail("login rate limiting reset", `still locked out at ${clearedUrl}`);
+  } else pass("login rate limiting: cleared counter lets the right password in");
+
+  await attacker.close();
 }
 
 if (errors.length) fail("console/network", errors.slice(0, 3).join(" | "));

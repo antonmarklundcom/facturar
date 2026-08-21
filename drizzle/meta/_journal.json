@@ -8,6 +8,13 @@
       "when": 1787218363531,
       "tag": "0000_smiling_purple_man",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1787321083388,
+      "tag": "0001_closed_green_goblin",
+      "breakpoints": true
     }
   ]
 }
