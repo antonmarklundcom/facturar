@@ -80,7 +80,7 @@ export default async function AdminHomePage() {
         <div className="grid gap-[var(--s-4)] sm:grid-cols-2 lg:grid-cols-3">
           <Card variant="accent" className="sm:col-span-2">
             <p className="eyebrow m-0">{t("tiles.overdue")}</p>
-            <p className="tabular m-0 mt-[var(--s-3)] font-[family-name:var(--font-display)] text-[length:var(--t-4)] leading-none">
+            <p className="money-display m-0 mt-[var(--s-3)] text-[length:var(--t-4)]">
               {formatMoneyParts(overdueTotal, currency)}
             </p>
             <p className="m-0 mt-[var(--s-3)] text-[length:var(--t--1)] text-ink-55">
@@ -90,7 +90,7 @@ export default async function AdminHomePage() {
 
           <Card variant="hair">
             <p className="eyebrow m-0">{t("tiles.outstanding")}</p>
-            <p className="tabular m-0 mt-[var(--s-3)] text-[length:var(--t-2)]">
+            <p className="money-display m-0 mt-[var(--s-3)] text-[length:var(--t-2)]">
               {formatMoneyParts(outstandingTotal, currency)}
             </p>
             <p className="m-0 mt-[var(--s-2)] text-[length:var(--t--1)] text-ink-55">

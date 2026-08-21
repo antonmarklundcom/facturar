@@ -4,8 +4,7 @@ import { and, eq, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { loginThrottle } from "@/db/schema";
 import {
-  isLockedOut,
-  nextFailureCount,
+  overLimit,
   retryAfterSeconds,
   THROTTLE_LIMITS,
   throttleScopes,
@@ -44,7 +43,7 @@ function normalizeIdentifier(value: string): string {
 export type ThrottleSnapshot = {
   email: ThrottleRecord;
   ip: ThrottleRecord;
-  /** True when either scope is over its limit right now. */
+  /** True when either scope is over its limit, counting this attempt. */
   locked: boolean;
   /** Seconds until the longest-running lock lifts; 0 when not locked. */
   retryAfter: number;
@@ -74,15 +73,34 @@ async function readRecord(
 }
 
 /**
- * Read both counters. The caller decides what to do with the verdict — this
- * never throws and never short-circuits the login, so that a throttled attempt
- * takes the same code path, and therefore the same time, as a wrong password.
+ * Count this attempt and report where that leaves both scopes.
+ *
+ * **The increment happens first, and that ordering is the control.** Reading
+ * the counter, deciding, and only then incrementing looks equivalent and is
+ * not: a thousand requests fired at once would all read the same pre-attempt
+ * value, all find themselves under the limit, and all proceed — the limit
+ * would only ever apply to attempts made one after another, which is not how
+ * anyone attacks a login form (PR-18 security review). Incrementing first
+ * makes each concurrent attempt observe a count that already includes itself,
+ * so a burst of a thousand gets a handful through rather than all thousand.
+ *
+ * A successful login deletes the row afterwards, so the attempt this counted
+ * costs a legitimate user nothing.
+ *
+ * This never throws and never short-circuits the login: the caller runs the
+ * whole credential check regardless, so a throttled attempt takes the same
+ * path — and the same time — as a wrong password.
  */
-export async function readThrottle(
+export async function countAttempt(
   email: string,
   ip: string | null,
   now: Date,
 ): Promise<ThrottleSnapshot> {
+  await Promise.all([
+    bumpOne("email", email, now),
+    ip ? bumpOne("ip", ip, now) : Promise.resolve(),
+  ]);
+
   const [emailRecord, ipRecord] = await Promise.all([
     readRecord("email", email),
     ip ? readRecord("ip", ip) : Promise.resolve(null),
@@ -98,7 +116,7 @@ export async function readThrottle(
 
   for (const scope of throttleScopes) {
     const limit = THROTTLE_LIMITS[scope];
-    if (!isLockedOut(records[scope], now, limit)) continue;
+    if (!overLimit(records[scope], now, limit)) continue;
 
     const seconds = retryAfterSeconds(records[scope], now, limit);
     if (seconds >= retryAfter) {
@@ -116,57 +134,43 @@ export async function readThrottle(
   };
 }
 
-async function recordOne(
+/**
+ * Add one to a counter, atomically.
+ *
+ * The new value is computed by the database from the stored row, never from a
+ * value this process read a moment ago: `INSERT … ON DUPLICATE KEY UPDATE` on
+ * a unique key is a single row operation, so N concurrent attempts produce N,
+ * not one. Reading the total back afterwards can only ever see an equal or
+ * higher count, which errs towards locking — the safe direction.
+ */
+async function bumpOne(
   scope: ThrottleScope,
   identifier: string,
-  previous: ThrottleRecord,
   now: Date,
 ): Promise<void> {
-  const failures = nextFailureCount(previous, now, THROTTLE_LIMITS[scope]);
+  const staleBefore = new Date(
+    now.getTime() - THROTTLE_LIMITS[scope].windowMinutes * 60_000,
+  );
 
   await db
     .insert(loginThrottle)
     .values({
       scope,
       identifier: normalizeIdentifier(identifier),
-      failures,
+      failures: 1,
       lastFailureAt: now,
     })
     .onDuplicateKeyUpdate({
-      // Recomputed in SQL rather than trusting the value we just read: two
-      // concurrent attempts must not both write "1".
-      //
       // `<=` and not `<`, matching `isStale()` exactly: a counter whose last
       // failure is precisely one window old has already expired, so the
-      // attempt that lands on that boundary starts a fresh count rather than
-      // resuming the old one.
+      // attempt landing on that boundary starts a fresh count rather than
+      // resuming the old one. (Written with `<` first; the database test
+      // caught it.)
       set: {
-        failures: sql`if(${loginThrottle.lastFailureAt} <= ${new Date(
-          now.getTime() - THROTTLE_LIMITS[scope].windowMinutes * 60_000,
-        )}, 1, ${loginThrottle.failures} + 1)`,
+        failures: sql`if(${loginThrottle.lastFailureAt} <= ${staleBefore}, 1, ${loginThrottle.failures} + 1)`,
         lastFailureAt: now,
       },
     });
-}
-
-/**
- * Count one failed attempt against both scopes.
- *
- * Every rejected login is recorded, including one rejected *because* it was
- * already locked out (so hammering the form extends the lock) and one for an
- * address that has no account (so the limiter behaves identically whether or
- * not the account exists).
- */
-export async function recordFailure(
-  email: string,
-  ip: string | null,
-  snapshot: ThrottleSnapshot,
-  now: Date,
-): Promise<void> {
-  await Promise.all([
-    recordOne("email", email, snapshot.email, now),
-    ip ? recordOne("ip", ip, snapshot.ip, now) : Promise.resolve(),
-  ]);
 }
 
 /**

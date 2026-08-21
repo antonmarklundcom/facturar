@@ -165,6 +165,7 @@ Apply `web-design-system`; no pricing page in v1. Must not pull the authenticate
 | 15 | Landing page | **merged** |
 | 16 | Login rate limiting | **merged** |
 | 17 | Payment correction | **merged** |
+| 18 | The ₲ glyph + security review | **merged** |
 
 ## Phase A notes (recorded 2026-08-20)
 
@@ -396,6 +397,7 @@ against a live database" caveat on PR-7 → PR-13.
 - **Design nit for later:** the display font has no `₲` glyph, so the browser falls back
   for that one character in the big dashboard figures. Legible, but slightly mismatched —
   worth a font with U+20B2 before the first paying customer.
+  *(Closed by PR-18 — and the diagnosis was half wrong; see the PR-18 notes.)*
 
 ## PR-15 notes (recorded 2026-08-20)
 
@@ -556,8 +558,137 @@ than two. Issued documents stay immutable — this touches payments only.
   something next to the invoice it was received against, and that is where the balance and
   the history are.
 
+### PR-18 The ₲ glyph, then a security review
+Make U+20B2 render in the same face as the digits beside it at display sizes, without adding a
+webfont request that costs the landing page its LCP. Then a security review of the whole app.
+**Depends:** PR-15 · **Accept:** verified in a real browser, not by assumption; PDFs still print `Gs.`
+
+## PR-18 notes (recorded 2026-08-21)
+
+- **The recorded diagnosis was half wrong, and measuring said so.** The standing note read
+  "the display font has no ₲". Reading the actual subset files that `next/font` downloads
+  (`fontTools`, `.next/static/media/*.woff2`) and then asking Chrome directly through CDP
+  `CSS.getPlatformFontsForNode` gave the real picture:
+  - **Bricolage Grotesque *does* have U+20B2**, in its `latin-ext` subset — whose
+    `unicode-range` (`u+20ad-20c0`) already covers it, so the file was already being
+    fetched and the 48 px dashboard figure was already rendering correctly.
+  - **Instrument Sans does not have it in any subset.** Every money figure in body text
+    was therefore drawn 11 glyphs from Instrument Sans and **one from DejaVu Sans** — and
+    on Windows or a phone, from something else again. The defect was not only "mismatched"
+    but *non-deterministic*: a different ₲ per visitor.
+  - The visible mismatch on the dashboard was two tiles side by side, one in the display
+    face with a correct ₲ and its neighbour in the body face with the platform's.
+- **The fix is two lines of CSS and no new font.** `body` (and `--font-sans`) now name
+  Bricolage Grotesque between Instrument Sans and the platform: font fallback is
+  per-character, so the digits still come from Instrument Sans and only the ₲ moves — to a
+  face this app chose, on every platform. And the large money figures use a new
+  `.money-display` class that sets the whole string in the display face, so at display
+  sizes the symbol and the digits are literally one font.
+- **No LCP cost, measured.** The landing page and the login screen contain no ₲, so they
+  request exactly the two preloaded `latin` files, before and after — confirmed by
+  counting `.woff2` requests in the browser. The `latin-ext` files load only inside
+  `/admin`, and they already did.
+- **A hand-built ₲ matching Instrument Sans was considered and rejected.** Drawing the
+  glyph from that font's own `G` and shipping a one-character woff2 would be the only fix
+  that is *right* rather than merely better — but Instrument Sans is a variable font, so a
+  custom glyph has to be correct across the whole weight axis, and a hand-edited font
+  artifact inside a product that prints legal documents is a poor trade for one character
+  in table text. The display sizes, which is where it shows, are exactly right without it.
+- **PDFs are untouched and must stay that way.** They render through
+  `@react-pdf/renderer`'s built-in Helvetica, which is WinAnsi-only and has no ₲ at any
+  price, so a document prints `Gs.` — pinned by `tests/pdf-render.test.tsx`.
+- **`scripts/qa.mjs` is now 39 checks.** Two are new and assert the fix through CDP rather
+  than by eye: every `.money-display` figure rasterises from exactly **one** font, and no
+  ₲ anywhere on the dashboard falls through to a family this app does not ship. **Both
+  were confirmed to fail when the fix is reverted** — a QA check nobody has seen fail is
+  not evidence.
+
+
+## PR-18 security review (recorded 2026-08-21)
+
+`/security-review` over the whole app, not just the diff — three reviewers in parallel over
+tenancy/authorization, auth/public surfaces, and injection/data exposure. **Tenant isolation
+and authorization came back clean**: every mutating action calls `requireRole()`, every query
+carries the tenant, and every form id is re-read through a tenant-scoped finder before it is
+used in a write. Six real findings elsewhere, all fixed in this PR.
+
+1. **The session seal outlived its cookie by thirteen days.** `sessionOptions()` set
+   `cookieOptions.maxAge` to eight hours but never set `ttl` — and iron-session only derives
+   one from the other when `maxAge` is *absent*, so `ttl` silently kept its 14-day default. A
+   cookie copied off an unlocked office machine kept authenticating for a fortnight after the
+   browser that owned it had forgotten it. Both are now set from one constant.
+2. **A session outlived the user row it described.** Role, active and `must_change_password`
+   were read from the database at login and then carried in the cookie, and nothing
+   invalidated the copy. Deactivating a fired employee, demoting someone to `viewer`, or
+   resetting a compromised password changed **nothing** for the tab they already had open —
+   they kept issuing invoices and exporting the customer list. `getCurrentSession()` now
+   re-reads the row on every request and believes it over the cookie: a missing or
+   deactivated user is no session at all, and the role and password-change flag come from the
+   row. The identity fields stay in the session; they are display, not authority. One
+   indexed read per request.
+3. **That fix introduced a redirect loop, and only the browser found it.** The middleware
+   sends anyone holding a session cookie from `/login` to `/admin`; `requireSession()` sends
+   an unusable session the other way. A cookie that is present but no longer valid bounced
+   between them forever — `ERR_TOO_MANY_REDIRECTS`, i.e. a deactivated employee could not
+   even reach the login form. It was **latent before this PR too**: any tampered or expired
+   cookie hit it. `requireSession()` now redirects to `/login?sesion=expirada` and the
+   middleware treats that as permission to delete the cookie, which ends the loop and clears
+   the dead credential. A server component can read cookies but not write them, so the
+   middleware is the only place this can happen.
+4. **And that fix broke the production build**, because the middleware runs on the Edge
+   runtime and importing the two constants from `guards.ts` — which now reaches the database
+   — pulled `mysql2` into the Edge bundle. They live in `src/lib/auth/session-ended.ts`,
+   which imports nothing and must keep importing nothing. Same family as the PR-14 finding
+   about a server component calling into a `"use client"` module: **these boundaries are only
+   visible when something is built or run.**
+5. **The login limiter was read-then-decide, so it only bound sequential attempts.** A
+   thousand simultaneous requests all read the same pre-attempt count, all found themselves
+   under the limit, and all proceeded — which is exactly how a login form is actually
+   attacked. The counter is now incremented *first* and the decision is taken on a count
+   that already includes the attempt in hand, so `maxFailures: 5` means "five wrong passwords
+   allowed, the sixth refused" (hence `overLimit` using `>`, not `>=`). A burst of fifty is
+   now counted as fifty and refused after five. Acting on the verdict still happens last, so
+   a throttled attempt keeps the same code path and the same clock as a wrong password.
+6. **`x-forwarded-for` was read from the left, which is the attacker's end.** Proxies
+   *append* to that header, so the first entry is whatever the client sent. That broke the IP
+   scope in both directions at once: a spray could mint a fresh counter per request and never
+   trip it, and — worse — an attacker could set the header to a tenant's office address and
+   lock that office out of its own invoicing. It is now read from the right, `TRUSTED_PROXY_HOPS`
+   from the end (default 1, documented in `.env.example`). **Verify that number at deploy
+   time in PR-6** by logging the raw header once from the live URL; `0` means "no proxy, do
+   not believe this header", and the IP scope is then simply not applied.
+7. **SSRF through the tenant logo.** `fetchLogoDataUri()` fetched whatever URL a tenant admin
+   typed in — and on a multi-tenant product that is anyone who signs up — with only an
+   `^https?://` check. Rendering is reachable from the **public** buyer route, so the request
+   could be triggered by someone with no account at all, holding a shared link.
+   `src/lib/net/safe-fetch.ts` now requires https on its default port, resolves the hostname
+   and refuses any private, loopback, link-local or carrier-NAT address (the cloud metadata
+   endpoint among them), and refuses redirects rather than re-validating each hop. Its own
+   unit test caught a hole in it: `new URL` rewrites `::ffff:127.0.0.1` into `::ffff:7f00:1`,
+   and only the dotted spelling was being matched, so loopback walked straight through.
+   A DNS-rebinding window remains and is noted in the code; the durable fix is to stop
+   fetching arbitrary URLs and store uploaded logos on disk — **added to the v1.1 backlog**.
+8. **The demo tenant's credentials are committed to the repository** and its accounts are
+   ordinary admins — `loginAction` does not treat a `demo` tenant differently. Seeding a
+   production database therefore publishes working admin credentials. `npm run db:seed` now
+   refuses to run when `NODE_ENV=production` unless `ALLOW_DEMO_SEED=1` is set explicitly.
+   **Before PR-6 goes live, confirm the demo tenant does not exist in the production
+   database** — `SELECT id, status FROM tenants WHERE status = 'demo'`.
+
+Two things below the bar, recorded rather than fixed: `document_lines.product_id` is written
+without a tenant-scoped existence check (never dereferenced on any read path, so it can only
+dangle), and `issueCreditNoteAction` does not assert the target's `type` is an invoice (a
+document-integrity question, fully tenant-scoped either way).
+
 ## v1.1 backlog (decided, deliberately not in v1)
 
 - Self-service password reset by email via Resend (signed single-use token, 30-min expiry, rate limited).
 - Sentry (free tier) with a scrubber for RUC, money amounts and email addresses — add once the first real tenant is live.
 - Off-site copy of the nightly dump (outside the Hostinger account).
+- **Upload the tenant logo instead of fetching a URL.** Storing it under `DOCUMENT_STORAGE_DIR`
+  and reading it from disk makes the SSRF guard in `src/lib/net/safe-fetch.ts` structural
+  rather than a denylist, and closes the DNS-rebinding window that guard cannot.
+- **Sentry event on a repeated login lockout** (with the scrubber above). A lockout is
+  invisible today unless somebody reads the `login_throttle` table.
+- **A `session_epoch` column** so a password change can invalidate other live sessions
+  outright, rather than relying on the eight-hour seal expiring.

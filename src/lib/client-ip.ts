@@ -1,31 +1,65 @@
 /**
  * The client's IP address as seen through a reverse proxy.
  *
- * Hostinger's managed Node slots sit behind a proxy, so the socket address is
- * always the proxy's; the real client is in `x-forwarded-for`, whose first
- * entry is the original client and whose later entries are the proxies it
- * passed through.
+ * `x-forwarded-for` is a list that each proxy **appends** to. The leftmost
+ * entry is therefore whatever the *client* sent — pure attacker input — and
+ * only the entries appended by proxies you actually control can be believed.
+ * Counting from the right is the only correct way to read it: with one trusted
+ * proxy in front, the last entry is the address that proxy observed, which is
+ * the real client.
  *
- * **This value is only as trustworthy as the proxy in front of the app.**
- * Anything reachable directly can set the header to whatever it likes, so the
- * IP scope of the login limiter is a backstop and never the primary defence —
- * the per-email limit is, and that one is keyed on a value the attacker must
- * actually use to get anywhere. This is why the IP scope's only job is to slow
- * a spray across many addresses.
+ * Reading the leftmost entry instead breaks the login limiter in both
+ * directions at once (PR-18 security review):
+ *
+ *  - **Bypass.** A spray sends `X-Forwarded-For: 203.0.113.<random>` on every
+ *    request, minting a fresh counter each time, and the IP scope never fires.
+ *  - **Denial of service against a customer.** Worse: an attacker sends the
+ *    header set to a tenant's *office* address and fails to log in twenty
+ *    times, locking that office out of its own invoicing for the window.
+ *
+ * `TRUSTED_PROXY_HOPS` says how many proxies append to the header before the
+ * app sees it. One is right for a single managed front end, which is what
+ * Hostinger's Node slots are — **verify it at deploy time (PR-6)** by logging
+ * the raw header once from the live URL. Setting it to `0` means "there is no
+ * proxy, do not believe this header at all", and the IP scope is then simply
+ * not applied rather than applied to a value an attacker chose.
  *
  * Pure and header-shaped rather than request-shaped so it can be tested
  * without a server.
  */
+export const DEFAULT_TRUSTED_PROXY_HOPS = 1;
+
+export function trustedProxyHops(raw = process.env.TRUSTED_PROXY_HOPS): number {
+  if (raw === undefined || raw.trim() === "") return DEFAULT_TRUSTED_PROXY_HOPS;
+
+  const parsed = Number(raw);
+  // A misconfigured value must not silently become "trust the client".
+  if (!Number.isInteger(parsed) || parsed < 0) return DEFAULT_TRUSTED_PROXY_HOPS;
+
+  return parsed;
+}
+
 export function parseClientIp(
   forwardedFor: string | null,
   realIp: string | null = null,
+  hops: number = trustedProxyHops(),
 ): string | null {
-  const first = (forwardedFor ?? "")
+  // No trusted proxy means no trustworthy header. Returning null drops the IP
+  // scope entirely, which is strictly better than keying it on attacker input.
+  if (hops < 1) return null;
+
+  const entries = (forwardedFor ?? "")
     .split(",")
     .map((part) => part.trim())
-    .find((part) => part.length > 0);
+    .filter((part) => part.length > 0);
 
-  return normalizeIp(first) ?? normalizeIp(realIp?.trim()) ?? null;
+  // The address the outermost trusted proxy observed: `hops` from the right.
+  const candidate = entries[entries.length - hops];
+
+  // `x-real-ip` is set by the proxy itself rather than forwarded from the
+  // client, so it needs no hop counting — but it is only a fallback, since a
+  // directly reachable app would see the client's own copy of it.
+  return normalizeIp(candidate) ?? normalizeIp(realIp?.trim()) ?? null;
 }
 
 /**

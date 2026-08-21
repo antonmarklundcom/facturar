@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { SESSION_ENDED_PARAM, SESSION_ENDED_VALUE } from "@/lib/auth/session-ended";
 import { SESSION_COOKIE } from "@/lib/auth/session";
 
 /**
@@ -29,6 +30,17 @@ export function middleware(request: NextRequest) {
   }
 
   if (pathname === "/login" && hasSessionCookie) {
+    // `requireSession()` sends a session it has just judged unusable here —
+    // expired, or belonging to a user an admin has since deactivated. Bouncing
+    // it back to /admin would loop forever, so the cookie is deleted and the
+    // login form renders. This is the only place the cookie can be cleared:
+    // a server component may read cookies but not write them.
+    if (request.nextUrl.searchParams.get(SESSION_ENDED_PARAM) === SESSION_ENDED_VALUE) {
+      const response = NextResponse.next();
+      response.cookies.delete(SESSION_COOKIE);
+      return response;
+    }
+
     const url = request.nextUrl.clone();
     url.pathname = "/admin";
     url.search = "";

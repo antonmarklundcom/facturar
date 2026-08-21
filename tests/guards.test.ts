@@ -5,6 +5,15 @@ import type { SessionData } from "@/lib/auth/session";
 const currentSession = vi.hoisted(() => ({ value: null as SessionData | null }));
 const redirected = vi.hoisted(() => ({ to: null as string | null }));
 
+/**
+ * The live `users` row behind the session. The guards re-read it on every
+ * request and believe it over the cookie (PR-18 security review), so these
+ * tests have to be able to move it out from under a signed-in session.
+ */
+const liveUser = vi.hoisted(() => ({
+  value: null as { role: Role; active: boolean; mustChangePassword: boolean } | null,
+}));
+
 vi.mock("server-only", () => ({}));
 
 vi.mock("@/lib/auth/session", async (importOriginal) => {
@@ -14,6 +23,10 @@ vi.mock("@/lib/auth/session", async (importOriginal) => {
     getSession: async () => currentSession.value ?? {},
   };
 });
+
+vi.mock("@/lib/auth/users", () => ({
+  findSessionUser: async () => liveUser.value,
+}));
 
 vi.mock("next/navigation", () => ({
   redirect: (path: string) => {
@@ -28,6 +41,7 @@ const {
   CHANGE_PASSWORD_PATH,
   ForbiddenError,
   LOGIN_PATH,
+  LOGIN_PATH_ENDED,
   UnauthenticatedError,
   getCurrentSession,
   requireRole,
@@ -35,6 +49,13 @@ const {
 } = await import("@/lib/auth/guards");
 
 function signIn(role: Role, extra: Partial<SessionData> = {}) {
+  // By default the database agrees with the cookie; a test that cares makes
+  // them disagree by writing to `liveUser` afterwards.
+  liveUser.value = {
+    role,
+    active: true,
+    mustChangePassword: extra.mustChangePassword === true,
+  };
   currentSession.value = {
     userId: 1,
     tenantId: 42,
@@ -49,6 +70,7 @@ function signIn(role: Role, extra: Partial<SessionData> = {}) {
 
 beforeEach(() => {
   currentSession.value = null;
+  liveUser.value = null;
   redirected.to = null;
 });
 
@@ -119,9 +141,14 @@ describe("requireRole", () => {
 });
 
 describe("requireSession", () => {
-  it("redirects an anonymous visitor to /login", async () => {
+  it("redirects an anonymous visitor to /login, flagged so the cookie is cleared", async () => {
+    // The middleware turns away /admin requests carrying no cookie at all, so
+    // anything reaching here holds one that has just been judged unusable.
+    // The flag is what lets the middleware delete it instead of bouncing the
+    // request back to /admin forever.
     await expect(requireSession()).rejects.toThrow("NEXT_REDIRECT");
-    expect(redirected.to).toBe(LOGIN_PATH);
+    expect(redirected.to).toBe(LOGIN_PATH_ENDED);
+    expect(LOGIN_PATH_ENDED.startsWith(LOGIN_PATH)).toBe(true);
   });
 
   it("returns the session for a signed-in user", async () => {
@@ -138,5 +165,72 @@ describe("getCurrentSession", () => {
   it("returns null for a half-written session with no tenant", async () => {
     currentSession.value = { userId: 1, role: "admin" };
     await expect(getCurrentSession()).resolves.toBeNull();
+  });
+});
+
+/**
+ * The cookie says who you are; the database says what you may do.
+ *
+ * A sealed session carries a copy of the role and the active flag from the
+ * moment of login. Nothing invalidates that copy, so unless the guards re-read
+ * the row, an admin who deactivates a fired employee changes nothing about the
+ * tab that person already has open (PR-18 security review).
+ */
+describe("the session is re-checked against the user row", () => {
+  it("is no session at all once the user is deactivated", async () => {
+    signIn("admin");
+    await expect(requireRole("users.manage")).resolves.toBeTruthy();
+
+    // The admin deactivates them while their tab is still open.
+    liveUser.value = { role: "admin", active: false, mustChangePassword: false };
+
+    await expect(getCurrentSession()).resolves.toBeNull();
+    await expect(requireRole("users.manage")).rejects.toBeInstanceOf(UnauthenticatedError);
+  });
+
+  it("is no session at all once the user row is gone", async () => {
+    signIn("employee");
+    liveUser.value = null;
+
+    await expect(getCurrentSession()).resolves.toBeNull();
+    await expect(requireRole("documents.issue")).rejects.toBeInstanceOf(
+      UnauthenticatedError,
+    );
+  });
+
+  it("takes the role from the row, so a demotion applies immediately", async () => {
+    signIn("admin");
+    // Demoted to viewer; the cookie still says admin.
+    liveUser.value = { role: "viewer", active: true, mustChangePassword: false };
+
+    await expect(getCurrentSession()).resolves.toMatchObject({ role: "viewer" });
+    await expect(requireRole("users.manage")).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(requireRole("payments.delete")).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("takes a promotion from the row too, not only a demotion", async () => {
+    signIn("viewer");
+    liveUser.value = { role: "admin", active: true, mustChangePassword: false };
+
+    await expect(getCurrentSession()).resolves.toMatchObject({ role: "admin" });
+  });
+
+  it("forces a password change ordered after the session was created", async () => {
+    signIn("employee");
+    // An admin resets the password of a compromised account.
+    liveUser.value = { role: "employee", active: true, mustChangePassword: true };
+
+    await expect(requireRole("documents.issue")).rejects.toThrow(/NEXT_REDIRECT/);
+    expect(redirected.to).toBe(CHANGE_PASSWORD_PATH);
+  });
+
+  it("keeps identity fields from the session — they are display, not authority", async () => {
+    signIn("employee");
+    await expect(getCurrentSession()).resolves.toMatchObject({
+      tenantId: 42,
+      userId: 1,
+      email: "employee@ykua.com.py",
+      uiLocale: "es",
+    });
   });
 });

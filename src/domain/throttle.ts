@@ -69,13 +69,22 @@ export function activeFailures(
   return record.failures;
 }
 
-/** Is this scope currently locked out? */
-export function isLockedOut(
+/**
+ * Should the attempt that produced this count be refused?
+ *
+ * **Strictly greater than, not "at least".** The counter is incremented before
+ * the decision is taken — that ordering is what makes the limit hold against a
+ * burst of simultaneous requests rather than only against attempts made one
+ * after another — so the count already includes the attempt being judged.
+ * `maxFailures: 5` therefore means "five wrong passwords are allowed and the
+ * sixth is refused", which is what it reads as.
+ */
+export function overLimit(
   record: ThrottleRecord,
   now: Date,
   limit: ThrottleLimit,
 ): boolean {
-  return activeFailures(record, now, limit) >= limit.maxFailures;
+  return activeFailures(record, now, limit) > limit.maxFailures;
 }
 
 /**
@@ -90,7 +99,7 @@ export function retryAfterSeconds(
   now: Date,
   limit: ThrottleLimit,
 ): number {
-  if (!isLockedOut(record, now, limit) || !record) return 0;
+  if (!overLimit(record, now, limit) || !record) return 0;
 
   const unlocksAt = record.lastFailureAt.getTime() + windowMs(limit);
   return Math.max(0, Math.ceil((unlocksAt - now.getTime()) / 1000));
@@ -109,15 +118,15 @@ export function nextFailureCount(
 }
 
 /**
- * Is either scope locked? The login action checks both and treats a lock on
- * either as a failed attempt.
+ * Is either scope over its limit? The login action checks both and treats a
+ * lock on either as a failed attempt.
  */
-export function anyLockedOut(
+export function anyOverLimit(
   records: Record<ThrottleScope, ThrottleRecord>,
   now: Date,
 ): boolean {
   return throttleScopes.some((scope) =>
-    isLockedOut(records[scope], now, THROTTLE_LIMITS[scope]),
+    overLimit(records[scope], now, THROTTLE_LIMITS[scope]),
   );
 }
 

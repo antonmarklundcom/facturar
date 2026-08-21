@@ -42,17 +42,28 @@ export function sessionOptions(): SessionOptions {
     );
   }
 
+  // Eight hours, stated twice on purpose. `ttl` is how long the sealed value
+  // stays cryptographically valid; `cookieOptions.maxAge` is only when the
+  // browser throws it away. iron-session derives one from the other *unless*
+  // `maxAge` is given explicitly — which it is here — in which case `ttl`
+  // silently keeps its 14-day default (see its `index.js`, the `"maxAge" in
+  // cookieOptions` branch). A cookie copied off an unlocked machine would then
+  // still authenticate for another thirteen days after the browser that owned
+  // it had forgotten it. Both are set, and they must stay equal.
+  const EIGHT_HOURS = 60 * 60 * 8;
+
   return {
     password,
+    ttl: EIGHT_HOURS,
     cookieName: SESSION_COOKIE,
     cookieOptions: {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      // Eight hours: an invoicing app is used during the working day, and a
-      // stale session on a shared office machine is a real risk.
-      maxAge: 60 * 60 * 8,
+      // An invoicing app is used during the working day, and a stale session
+      // on a shared office machine is a real risk.
+      maxAge: EIGHT_HOURS,
     },
   };
 }

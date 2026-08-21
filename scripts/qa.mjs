@@ -211,6 +211,67 @@ else {
   await employee.close();
 }
 
+// The guaraní sign (PR-18). U+20B2 is not in Instrument Sans, so left alone
+// the browser draws it from whatever the machine offers — DejaVu Sans here,
+// something else on Windows — and it never matches the digits beside it.
+//
+// Asserted through CDP rather than by eye: `CSS.getPlatformFontsForNode`
+// reports the fonts actually used to rasterise a node, so "one font for the
+// whole figure" is a fact the browser states, not one a screenshot suggests.
+{
+  await page.goto(`${BASE}/admin`, { waitUntil: "networkidle" });
+  await mainText();
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForTimeout(500);
+
+  const cdp = await context.newCDPSession(page);
+  await cdp.send("DOM.enable");
+  await cdp.send("CSS.enable");
+  const { root } = await cdp.send("DOM.getDocument", { depth: -1, pierce: true });
+
+  // Families this app actually ships. Anything else is the platform stepping in.
+  const OURS = /^(Instrument Sans|Bricolage Grotesque)/;
+
+  const fontsFor = async (selector) => {
+    const { nodeIds } = await cdp.send("DOM.querySelectorAll", { nodeId: root.nodeId, selector });
+    const out = [];
+    for (const nodeId of nodeIds) {
+      const { outerHTML } = await cdp.send("DOM.getOuterHTML", { nodeId });
+      if (!outerHTML.includes("₲")) continue;
+      const { fonts } = await cdp.send("CSS.getPlatformFontsForNode", { nodeId });
+      out.push({ html: outerHTML.slice(0, 80), fonts });
+    }
+    return out;
+  };
+
+  // At display sizes symbol and digits must be one face, full stop.
+  const large = await fontsFor(".money-display");
+  if (large.length === 0) {
+    fail("guaraní sign at display size", "no .money-display figure with a ₲ on the dashboard");
+  } else {
+    const split = large.filter((n) => n.fonts.length !== 1);
+    if (split.length > 0) {
+      fail(
+        "guaraní sign at display size",
+        split.map((n) => n.fonts.map((f) => `${f.familyName} x${f.glyphCount}`).join(" + ")).join(" | "),
+      );
+    } else pass(`guaraní sign and digits are one face at display size (${large.length} figures)`);
+  }
+
+  // Everywhere else the symbol may come from the companion face, but never
+  // from whatever font the visitor's machine happens to have.
+  const body = await fontsFor("main *");
+  const foreign = body.filter((n) => n.fonts.some((f) => !OURS.test(f.familyName)));
+  if (foreign.length > 0) {
+    fail(
+      "guaraní sign falls back to a platform font",
+      foreign[0].fonts.map((f) => `${f.familyName} x${f.glyphCount}`).join(" + "),
+    );
+  } else pass(`guaraní sign never falls through to a platform font (${body.length} nodes)`);
+
+  await cdp.detach();
+}
+
 // CSV export.
 const csv = await context.request.get(`${BASE}/admin/informes/csv?kind=iva&from=2026-01-01&to=2026-12-31`);
 const csvText = await csv.text();
@@ -326,6 +387,67 @@ if (!throttleDbUrl) {
   } else pass("login rate limiting: cleared counter lets the right password in");
 
   await attacker.close();
+}
+
+// Session revalidation (PR-18 security review). The sealed cookie carries a
+// copy of the role and the active flag from login. Nothing invalidates it, so
+// unless the guards re-read the user row, an admin who deactivates a fired
+// employee changes nothing about the tab that person already has open.
+//
+// Needs DATABASE_URL to flip the flag and put it back; skipped rather than
+// left behind otherwise.
+if (!process.env.DATABASE_URL) {
+  results.push("skip session revalidation (set DATABASE_URL to flip the active flag)");
+} else {
+  const mysql = await import("mysql2/promise");
+  const connection = await mysql.createConnection(process.env.DATABASE_URL);
+  const fired = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const firedPage = await fired.newPage();
+
+  try {
+    await firedPage.goto(`${BASE}/login`, { waitUntil: "networkidle" });
+    await firedPage.fill("#email", "vendedor@sanblas.com.py");
+    await firedPage.fill("#password", "FerreteriaDemo2026");
+    await firedPage.click('button[type="submit"]');
+    await firedPage.waitForURL(`${BASE}/admin`, { timeout: 15000 });
+
+    // The admin deactivates them. The cookie in that browser is untouched.
+    await connection.execute("UPDATE users SET active = 0 WHERE email = ?", [
+      "vendedor@sanblas.com.py",
+    ]);
+
+    await firedPage.goto(`${BASE}/admin/facturas`, { waitUntil: "networkidle" });
+    if (!firedPage.url().includes("/login")) {
+      fail("session revalidation", `deactivated user still inside at ${firedPage.url()}`);
+    } else pass("a deactivated user's open session stops working immediately");
+
+    // And a demotion takes effect the same way: back on, but as a viewer.
+    await connection.execute("UPDATE users SET active = 1, role = 'viewer' WHERE email = ?", [
+      "vendedor@sanblas.com.py",
+    ]);
+    await firedPage.goto(`${BASE}/login`, { waitUntil: "networkidle" });
+    await firedPage.fill("#email", "vendedor@sanblas.com.py");
+    await firedPage.fill("#password", "FerreteriaDemo2026");
+    await firedPage.click('button[type="submit"]');
+    await firedPage.waitForURL(`${BASE}/admin`, { timeout: 15000 });
+
+    await connection.execute("UPDATE users SET role = 'employee' WHERE email = ?", [
+      "vendedor@sanblas.com.py",
+    ]);
+    await firedPage.goto(`${BASE}/admin/clientes`, { waitUntil: "networkidle" });
+    const promotedText = (await firedPage.locator("main").innerText()).replace(/\s+/g, " ");
+    if (!/Agregá el cliente/.test(promotedText)) {
+      fail("session revalidation", "a promotion did not reach the open session");
+    } else pass("a role change reaches an open session without a re-login");
+  } finally {
+    // Whatever happened, put the demo tenant back as it was found.
+    await connection.execute(
+      "UPDATE users SET active = 1, role = 'employee' WHERE email = ?",
+      ["vendedor@sanblas.com.py"],
+    );
+    await connection.end();
+    await fired.close();
+  }
 }
 
 if (errors.length) fail("console/network", errors.slice(0, 3).join(" | "));
