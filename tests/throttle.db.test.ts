@@ -40,99 +40,99 @@ describeWithDb("login throttle storage (requires TEST_DATABASE_URL)", () => {
   afterEach(async () => {
     await db.delete(loginThrottle).where(eq(loginThrottle.identifier, EMAIL));
     await db.delete(loginThrottle).where(eq(loginThrottle.identifier, IP));
+    await db.delete(loginThrottle).where(eq(loginThrottle.scope, "email"));
   });
 
-  /** One rejected attempt, exactly as the login action performs it. */
-  async function fail(now: Date) {
-    const snapshot = await throttle.readThrottle(EMAIL, IP, now);
-    await throttle.recordFailure(EMAIL, IP, snapshot, now);
-  }
+  /** One attempt, exactly as the login action performs it. */
+  const attempt = (now: Date, email = EMAIL) => throttle.countAttempt(email, IP, now);
 
-  it("starts with no counters at all", async () => {
-    const snapshot = await throttle.readThrottle(EMAIL, IP, T0);
+  /** The stored counter, without touching it. */
+  const stored = async (scope: "email" | "ip", identifier: string) => {
+    const rows = await db
+      .select({ failures: loginThrottle.failures })
+      .from(loginThrottle)
+      .where(
+        and(eq(loginThrottle.scope, scope), eq(loginThrottle.identifier, identifier)),
+      );
+    return rows[0]?.failures ?? null;
+  };
 
-    expect(snapshot.email).toBeNull();
-    expect(snapshot.ip).toBeNull();
-    expect(snapshot.locked).toBe(false);
-    expect(snapshot.lockedScope).toBeNull();
-  });
-
-  it("counts failures up and locks the address at the limit", async () => {
+  it("counts the attempt in hand, and allows exactly maxFailures of them", async () => {
     const limit = THROTTLE_LIMITS.email.maxFailures;
 
-    for (let attempt = 1; attempt < limit; attempt += 1) {
-      await fail(at(attempt));
-      const snapshot = await throttle.readThrottle(EMAIL, IP, at(attempt));
-      expect(snapshot.email?.failures).toBe(attempt);
-      expect(snapshot.locked, `locked after only ${attempt} failures`).toBe(false);
+    for (let n = 1; n <= limit; n += 1) {
+      const snapshot = await attempt(at(n));
+      expect(snapshot.email?.failures).toBe(n);
+      expect(snapshot.locked, `refused on attempt ${n} of ${limit}`).toBe(false);
     }
 
-    await fail(at(limit));
-    const locked = await throttle.readThrottle(EMAIL, IP, at(limit));
+    // The one after the limit is refused.
+    const refused = await attempt(at(limit + 1));
+    expect(refused.email?.failures).toBe(limit + 1);
+    expect(refused.locked).toBe(true);
+    expect(refused.lockedScope).toBe("email");
+    expect(refused.retryAfter).toBe(THROTTLE_LIMITS.email.windowMinutes * 60);
+  });
 
-    expect(locked.email?.failures).toBe(limit);
-    expect(locked.locked).toBe(true);
-    expect(locked.lockedScope).toBe("email");
-    expect(locked.retryAfter).toBe(THROTTLE_LIMITS.email.windowMinutes * 60);
+  it("holds against a burst of simultaneous attempts, not only sequential ones", async () => {
+    // The whole reason the counter is incremented *before* the decision.
+    // Read-then-decide would let all fifty of these read "0 failures", find
+    // themselves under the limit, and go through — the limit would only ever
+    // apply to attempts made one after another, which is not how anyone
+    // attacks a login form.
+    const burst = 50;
+    const snapshots = await Promise.all(
+      Array.from({ length: burst }, () => attempt(T0)),
+    );
+
+    // Every attempt is counted: none is lost to a lost update.
+    expect(await stored("email", EMAIL)).toBe(burst);
+
+    // And most of them are refused. The exact number that slips through
+    // depends on interleaving, so this asserts the property that matters:
+    // far fewer than all of them, and no more than the limit allows.
+    const allowed = snapshots.filter((s) => !s.locked).length;
+    expect(allowed).toBeLessThanOrEqual(THROTTLE_LIMITS.email.maxFailures);
+    expect(allowed).toBeLessThan(burst);
   });
 
   it("resets the stored counter when the window has gone quiet", async () => {
     const { maxFailures, windowMinutes } = THROTTLE_LIMITS.email;
 
-    for (let attempt = 1; attempt <= maxFailures; attempt += 1) await fail(at(attempt));
-    expect((await throttle.readThrottle(EMAIL, IP, at(maxFailures))).locked).toBe(true);
+    for (let n = 1; n <= maxFailures + 1; n += 1) await attempt(at(n));
+    expect((await attempt(at(maxFailures + 2))).locked).toBe(true);
 
-    // A full window later, the lock has lifted on read...
-    const later = at(maxFailures + windowMinutes);
-    expect((await throttle.readThrottle(EMAIL, IP, later)).locked).toBe(false);
-
-    // ...and the next failure restarts the count at 1 in the database itself,
-    // rather than resuming from the stale value.
-    await fail(later);
-    const restarted = await throttle.readThrottle(EMAIL, IP, later);
+    // A full window after the last attempt, the count has expired: the next
+    // attempt restarts at 1 in the database itself rather than resuming from
+    // the stale value, and is allowed.
+    const later = at(maxFailures + 2 + windowMinutes);
+    const restarted = await attempt(later);
     expect(restarted.email?.failures).toBe(1);
     expect(restarted.locked).toBe(false);
   });
 
   it("clears the address counter on a successful login, but not the IP one", async () => {
-    for (let attempt = 1; attempt <= 3; attempt += 1) await fail(at(attempt));
+    for (let n = 1; n <= 3; n += 1) await attempt(at(n));
 
     await throttle.clearThrottle(EMAIL);
-    const after = await throttle.readThrottle(EMAIL, IP, at(4));
 
-    expect(after.email).toBeNull();
+    expect(await stored("email", EMAIL)).toBeNull();
     // The IP budget deliberately survives: holding one valid account must not
     // reset the address-wide count between bursts of guesses at other people's.
-    expect(after.ip?.failures).toBe(3);
-  });
-
-  it("counts concurrent failures once each rather than losing them", async () => {
-    // Six requests reading the same counter and writing at the same moment.
-    // A read-modify-write in JavaScript would land on "1"; the upsert does
-    // its arithmetic in SQL, so all six are counted.
-    const snapshot = await throttle.readThrottle(EMAIL, IP, T0);
-    await Promise.all(
-      Array.from({ length: 6 }, () => throttle.recordFailure(EMAIL, IP, snapshot, T0)),
-    );
-
-    const after = await throttle.readThrottle(EMAIL, IP, T0);
-    expect(after.email?.failures).toBe(6);
-    expect(after.locked).toBe(true);
+    expect(await stored("ip", IP)).toBe(3);
   });
 
   it("locks on the IP scope alone once it passes its own, higher limit", async () => {
     const { maxFailures } = THROTTLE_LIMITS.ip;
-    const now = T0;
 
-    // Spraying distinct addresses from one IP: no single address gets near
-    // its own limit, but the address-wide count does.
-    for (let attempt = 0; attempt < maxFailures; attempt += 1) {
-      const snapshot = await throttle.readThrottle(`spray-${attempt}@x.py`, IP, now);
-      await throttle.recordFailure(`spray-${attempt}@x.py`, IP, snapshot, now);
+    // Spraying distinct addresses from one IP: no single address gets near its
+    // own limit, but the address-wide count does.
+    for (let n = 0; n <= maxFailures; n += 1) {
+      await attempt(T0, `spray-${n}@x.py`);
     }
 
-    const fresh = await throttle.readThrottle("someone-else@sanblas.com.py", IP, now);
-    expect(fresh.email).toBeNull();
+    const fresh = await attempt(T0, "someone-else@sanblas.com.py");
+    expect(fresh.email?.failures).toBe(1);
     expect(fresh.locked).toBe(true);
     expect(fresh.lockedScope).toBe("ip");
 
@@ -140,15 +140,11 @@ describeWithDb("login throttle storage (requires TEST_DATABASE_URL)", () => {
   });
 
   it("prunes counters far older than any window and keeps recent ones", async () => {
-    await fail(T0);
+    await attempt(T0);
     await throttle.pruneStaleThrottles(at(1));
-    expect((await throttle.readThrottle(EMAIL, IP, at(1))).email?.failures).toBe(1);
+    expect(await stored("email", EMAIL)).toBe(1);
 
     await throttle.pruneStaleThrottles(at(60 * 24));
-    const rows = await db
-      .select()
-      .from(loginThrottle)
-      .where(and(eq(loginThrottle.scope, "email"), eq(loginThrottle.identifier, EMAIL)));
-    expect(rows).toEqual([]);
+    expect(await stored("email", EMAIL)).toBeNull();
   });
 });

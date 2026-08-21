@@ -6,12 +6,7 @@ import { logActivity } from "@/lib/activity";
 import { APP_PATH, CHANGE_PASSWORD_PATH, LOGIN_PATH } from "@/lib/auth/guards";
 import { fakeVerifyDelay, verifyPassword } from "@/lib/auth/password";
 import { getSession } from "@/lib/auth/session";
-import {
-  clearThrottle,
-  pruneStaleThrottles,
-  readThrottle,
-  recordFailure,
-} from "@/lib/auth/throttle";
+import { clearThrottle, countAttempt, pruneStaleThrottles } from "@/lib/auth/throttle";
 import { findLoginCandidate, markLoggedIn, normalizeEmail } from "@/lib/auth/users";
 import { parseClientIp } from "@/lib/client-ip";
 import { echo, field, formError, type FormState } from "@/lib/forms";
@@ -60,12 +55,15 @@ export async function loginAction(
     requestHeaders.get("x-real-ip"),
   );
 
-  // Read the limiter first, but do not act on it yet. A throttled attempt runs
-  // the whole credential check anyway and is rejected at the end, so it costs
-  // the same bcrypt comparison — and therefore takes the same time — as a
-  // wrong password. Short-circuiting here would turn the limiter into its own
-  // side channel.
-  const throttle = await readThrottle(email, ip, now);
+  // Count this attempt before checking anything, and act on the verdict only
+  // at the end. Counting first is what makes the limit hold against a burst of
+  // simultaneous requests rather than only against attempts made one after
+  // another. Acting last is what keeps a throttled attempt on the same code
+  // path, and therefore the same clock, as a wrong password — short-circuiting
+  // here would turn the limiter into its own account-existence oracle. A
+  // successful login clears the counter below, so this costs a real user
+  // nothing.
+  const throttle = await countAttempt(email, ip, now);
 
   const candidate = await findLoginCandidate(email);
 
@@ -93,7 +91,6 @@ export async function loginAction(
       accountActive: candidate?.active ?? false,
     })
   ) {
-    await recordFailure(email, ip, throttle, now);
     return formError("invalidCredentials", undefined, { values, previous });
   }
 

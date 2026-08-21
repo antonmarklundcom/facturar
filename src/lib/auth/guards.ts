@@ -3,6 +3,8 @@ import "server-only";
 import { redirect } from "next/navigation";
 import type { Role } from "@/db/schema";
 import { can, type Capability } from "./roles";
+import { SESSION_ENDED_PARAM, SESSION_ENDED_VALUE } from "./session-ended";
+import { findSessionUser } from "./users";
 import {
   getSession,
   toAuthenticated,
@@ -16,6 +18,13 @@ export const LOGIN_PATH = "/login";
 export const APP_PATH = "/admin";
 /** Forced password change after an admin reset (decision 19). */
 export const CHANGE_PASSWORD_PATH = "/admin/cambiar-contrasena";
+
+/**
+ * Where an unusable session is sent: the login screen, flagged so the
+ * middleware deletes the dead cookie instead of bouncing it back here. See
+ * `session-ended.ts` for why those two strings live in a module of their own.
+ */
+export const LOGIN_PATH_ENDED = `${LOGIN_PATH}?${SESSION_ENDED_PARAM}=${SESSION_ENDED_VALUE}`;
 
 /** Thrown when an authenticated user lacks the capability for a mutation. */
 export class ForbiddenError extends Error {
@@ -33,10 +42,40 @@ export class UnauthenticatedError extends Error {
   }
 }
 
-/** Session for the current request, or `null`. Never throws. */
+/**
+ * Session for the current request, or `null`. Never throws.
+ *
+ * The cookie says who the user is; the **database** says what they may do.
+ * The sealed session carries a copy of the role and the active flag from the
+ * moment of login, and nothing invalidates it — so an employee who is
+ * deactivated, demoted, or has their password reset after a compromise would
+ * otherwise keep every right they had, in the tab they already have open,
+ * until the session expired. That is the wrong answer to "I fired someone this
+ * morning" (PR-18 security review).
+ *
+ * So the user row is re-read on every request and it wins: a missing or
+ * deactivated user is no session at all, and the role and password-change flag
+ * are taken from the row rather than from the cookie. The identity fields
+ * (tenant, email, name, language) still come from the session — they are
+ * display, not authority.
+ *
+ * The cost is one indexed read per request, against a page that already makes
+ * several. Fail-closed: any doubt is `null`.
+ */
 export async function getCurrentSession(): Promise<AuthenticatedSession | null> {
   const session = await getSession();
-  return toAuthenticated(session as SessionData);
+  const claimed = toAuthenticated(session as SessionData);
+  if (!claimed) return null;
+
+  const live = await findSessionUser(claimed.tenantId, claimed.userId);
+  if (!live || !live.active) return null;
+
+  return {
+    ...claimed,
+    role: live.role,
+    // A reset done while the session was open must still force the change.
+    mustChangePassword: live.mustChangePassword,
+  };
 }
 
 /**
@@ -45,7 +84,10 @@ export async function getCurrentSession(): Promise<AuthenticatedSession | null> 
  */
 export async function requireSession(): Promise<AuthenticatedSession> {
   const session = await getCurrentSession();
-  if (!session) redirect(LOGIN_PATH);
+  // Always the "session ended" form: this is reached with a cookie in hand
+  // (the middleware turns away requests without one), and that cookie has just
+  // been judged unusable, so it needs clearing rather than following.
+  if (!session) redirect(LOGIN_PATH_ENDED);
   return session;
 }
 

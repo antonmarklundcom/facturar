@@ -160,7 +160,12 @@
   --color-info-soft: var(--info-soft);
 
   --font-display: var(--font-bricolage), Georgia, serif;
-  --font-sans: var(--font-instrument), system-ui, sans-serif;
+  /*
+   * Bricolage sits between Instrument Sans and the platform on purpose; see
+   * the note on `body` below. It is a fallback, not a second body face —
+   * Instrument Sans covers everything this app writes except one character.
+   */
+  --font-sans: var(--font-instrument), var(--font-bricolage), system-ui, sans-serif;
 
   --radius-sm: var(--r-sm);
   --radius-md: var(--r-md);
@@ -178,7 +183,31 @@ body {
   margin: 0;
   background: var(--base);
   color: var(--ink);
-  font-family: var(--font-instrument), system-ui, sans-serif;
+  /*
+   * The guaraní sign, U+20B2, is not in Instrument Sans — not in its latin
+   * subset and not in its latin-ext one either. Left to itself the browser
+   * picks the character out of whatever the machine happens to offer, so ₲
+   * renders in DejaVu Sans on Linux and in something else again on Windows or
+   * a phone: a different face from the digits beside it, and a different one
+   * per visitor.
+   *
+   * Bricolage Grotesque — the display face this app already loads — does have
+   * it, in the latin-ext subset that any screen showing money already fetches.
+   * Naming it as the next family here pins the symbol to a face we chose, on
+   * every platform, and costs no extra request: font fallback is per
+   * character, so the digits keep coming from Instrument Sans, and a page with
+   * no ₲ on it (the landing page, the login screen) never asks for the file at
+   * all.
+   *
+   * Where the two must not differ at all — the large money figures — the whole
+   * string is set in `--font-display` instead, and symbol and digits are one
+   * face. See `.money-display`.
+   *
+   * None of this touches the PDFs. They render through @react-pdf/renderer's
+   * built-in Helvetica, which is WinAnsi-only and has no ₲ at any price, so a
+   * document prints `Gs.` — pinned by tests/pdf-render.test.tsx.
+   */
+  font-family: var(--font-instrument), var(--font-bricolage), system-ui, sans-serif;
   font-size: var(--t-0);
   line-height: 1.65;
   -webkit-font-smoothing: antialiased;
@@ -208,6 +237,19 @@ h3 {
 .tabular {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
+}
+
+/*
+ * A money figure large enough that a mismatched currency symbol reads as a
+ * mistake rather than as a quirk. Setting the whole string in the display face
+ * puts the ₲ and the digits in one font — Bricolage Grotesque has both — which
+ * the body stack above can only approximate.
+ */
+.money-display {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  line-height: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {

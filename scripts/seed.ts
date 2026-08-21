@@ -276,7 +276,34 @@ async function wipe(tenantId: number): Promise<void> {
   await db.delete(tenants).where(eq(tenants.id, tenantId));
 }
 
+/**
+ * The demo tenant's password is a constant in this file, committed to the
+ * repository, and its three accounts are ordinary fully-privileged users —
+ * `admin@sanblas.com.py` is a real admin as far as `loginAction` is concerned.
+ * That is exactly right for a sales demo on a scratch database and a breach on
+ * a production one: anyone who has seen this repository, or who guesses the
+ * pattern from a public demo, can sign in as an admin (PR-18 security review).
+ *
+ * So the seed refuses to run against a production deployment unless somebody
+ * says out loud that they mean it. Development and CI are unaffected.
+ */
+function assertSeedingIsAllowed(): void {
+  const production = process.env.NODE_ENV === "production";
+  const allowed = process.env.ALLOW_DEMO_SEED === "1";
+
+  if (production && !allowed) {
+    throw new Error(
+      "Refusing to seed: NODE_ENV=production and the demo tenant's password is " +
+        "public in scripts/seed.ts. These are real admin credentials. Set " +
+        "ALLOW_DEMO_SEED=1 only if this database is genuinely a demo, and " +
+        "change the password afterwards.",
+    );
+  }
+}
+
 async function main(): Promise<void> {
+  assertSeedingIsAllowed();
+
   const reset = process.argv.includes("--reset");
 
   const existing = await db

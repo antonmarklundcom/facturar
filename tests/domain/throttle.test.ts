@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   activeFailures,
-  anyLockedOut,
-  isLockedOut,
+  anyOverLimit,
   isStale,
   loginRejected,
   nextFailureCount,
+  overLimit,
   retryAfterSeconds,
   THROTTLE_LIMITS,
   type ThrottleRecord,
@@ -30,7 +30,7 @@ const record = (failures: number, minutesAgo = 0): ThrottleRecord => ({
 describe("the counting window", () => {
   it("treats a missing counter as no failures", () => {
     expect(activeFailures(null, T0, EMAIL)).toBe(0);
-    expect(isLockedOut(null, T0, EMAIL)).toBe(false);
+    expect(overLimit(null, T0, EMAIL)).toBe(false);
   });
 
   it("counts failures inside the window", () => {
@@ -42,17 +42,17 @@ describe("the counting window", () => {
 
     expect(isStale(quiet, T0, EMAIL)).toBe(true);
     expect(activeFailures(quiet, T0, EMAIL)).toBe(0);
-    expect(isLockedOut(quiet, T0, EMAIL)).toBe(false);
+    expect(overLimit(quiet, T0, EMAIL)).toBe(false);
   });
 
   it("still holds one second before the window closes", () => {
     const almost: ThrottleRecord = {
-      failures: EMAIL.maxFailures,
+      failures: EMAIL.maxFailures + 1,
       lastFailureAt: new Date(T0.getTime() - EMAIL.windowMinutes * 60_000 + 1000),
     };
 
     expect(isStale(almost, T0, EMAIL)).toBe(false);
-    expect(isLockedOut(almost, T0, EMAIL)).toBe(true);
+    expect(overLimit(almost, T0, EMAIL)).toBe(true);
   });
 
   it("restarts a stale counter at one rather than resuming it", () => {
@@ -63,21 +63,24 @@ describe("the counting window", () => {
 });
 
 describe("the lockout", () => {
-  it("locks exactly at the limit, not before it", () => {
-    expect(isLockedOut(record(EMAIL.maxFailures - 1), T0, EMAIL)).toBe(false);
-    expect(isLockedOut(record(EMAIL.maxFailures), T0, EMAIL)).toBe(true);
-    expect(isLockedOut(record(EMAIL.maxFailures + 1), T0, EMAIL)).toBe(true);
+  it("allows exactly maxFailures attempts and refuses the next one", () => {
+    // The counter is incremented before the decision, so the count being
+    // judged already includes the attempt in hand: `maxFailures: 5` means
+    // five wrong passwords go through and the sixth does not.
+    expect(overLimit(record(EMAIL.maxFailures - 1), T0, EMAIL)).toBe(false);
+    expect(overLimit(record(EMAIL.maxFailures), T0, EMAIL)).toBe(false);
+    expect(overLimit(record(EMAIL.maxFailures + 1), T0, EMAIL)).toBe(true);
   });
 
   it("gives the IP scope a much longer leash than the email scope", () => {
     // A shared office address must not be locked out by one colleague's typos.
     expect(IP.maxFailures).toBeGreaterThan(EMAIL.maxFailures);
-    expect(isLockedOut(record(EMAIL.maxFailures), T0, IP)).toBe(false);
+    expect(overLimit(record(EMAIL.maxFailures + 1), T0, IP)).toBe(false);
   });
 
   it("counts the window from the last failure, so hammering extends the lock", () => {
     const hammered = record(EMAIL.maxFailures + 20, 0);
-    const patient = record(EMAIL.maxFailures, EMAIL.windowMinutes - 1);
+    const patient = record(EMAIL.maxFailures + 1, EMAIL.windowMinutes - 1);
 
     expect(retryAfterSeconds(hammered, T0, EMAIL)).toBe(EMAIL.windowMinutes * 60);
     expect(retryAfterSeconds(patient, T0, EMAIL)).toBe(60);
@@ -89,19 +92,19 @@ describe("the lockout", () => {
   });
 
   it("unlocks once the window has passed with no further attempts", () => {
-    const locked = record(EMAIL.maxFailures);
+    const locked = record(EMAIL.maxFailures + 1);
 
-    expect(isLockedOut(locked, T0, EMAIL)).toBe(true);
-    expect(isLockedOut(locked, at(EMAIL.windowMinutes), EMAIL)).toBe(false);
+    expect(overLimit(locked, T0, EMAIL)).toBe(true);
+    expect(overLimit(locked, at(EMAIL.windowMinutes), EMAIL)).toBe(false);
   });
 
   it("locks the attempt when either scope is over its limit", () => {
-    expect(anyLockedOut({ email: null, ip: null }, T0)).toBe(false);
+    expect(anyOverLimit({ email: null, ip: null }, T0)).toBe(false);
     expect(
-      anyLockedOut({ email: record(EMAIL.maxFailures), ip: null }, T0),
+      anyOverLimit({ email: record(EMAIL.maxFailures + 1), ip: null }, T0),
     ).toBe(true);
     expect(
-      anyLockedOut({ email: null, ip: record(IP.maxFailures) }, T0),
+      anyOverLimit({ email: null, ip: record(IP.maxFailures + 1) }, T0),
     ).toBe(true);
   });
 });

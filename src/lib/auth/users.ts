@@ -49,6 +49,38 @@ export async function findLoginCandidate(email: string): Promise<LoginCandidate 
   return rows.length === 1 ? rows[0] : null;
 }
 
+/**
+ * The live authorization facts for a signed-in user (PR-18 security review).
+ *
+ * The session cookie carries a *copy* of the role, the active flag and the
+ * password-change flag, sealed at login. Nothing invalidates that copy, so
+ * without this read an admin who deactivates a fired employee, demotes someone
+ * to `viewer`, or resets a compromised password changes nothing at all for the
+ * session already in that person's browser: they keep issuing invoices and
+ * exporting the customer list until the cookie expires. `guards.ts` reads
+ * this on every request and believes the database, not the cookie.
+ *
+ * Scoped by tenant as well as by id so a session naming another tenant's user
+ * — which sealing makes impossible, but defence in depth is the point — finds
+ * nothing and fails closed.
+ */
+export async function findSessionUser(
+  tenantId: number,
+  userId: number,
+): Promise<{ role: Role; active: boolean; mustChangePassword: boolean } | null> {
+  const rows = await db
+    .select({
+      role: users.role,
+      active: users.active,
+      mustChangePassword: users.mustChangePassword,
+    })
+    .from(users)
+    .where(tenantScoped(users, tenantId, eq(users.id, userId)))
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
 /** Users of one tenant, for the admin management screen. */
 export async function listTenantUsers(tenantId: number) {
   return db

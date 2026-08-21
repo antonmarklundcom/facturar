@@ -96,7 +96,7 @@ export default async function ProductDetailPage({
         <div className="flex min-w-0 flex-col gap-[var(--s-4)]">
           <Card variant="hair">
             <p className="eyebrow m-0">{t("priceBreakdown")}</p>
-            <p className="tabular m-0 mt-[var(--s-2)] font-[family-name:var(--font-display)] text-[length:var(--t-2)] leading-none">
+            <p className="money-display m-0 mt-[var(--s-2)] text-[length:var(--t-2)]">
               {formatMoneyParts(product.unitAmount, product.currency)}
             </p>
             <p className="m-0 mt-[var(--s-3)] text-[length:var(--t--1)] text-ink-55">
