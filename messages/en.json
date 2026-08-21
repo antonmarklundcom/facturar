@@ -739,7 +739,8 @@
       "body": "When an invoice is paid, record the payment from the invoice and it will show up here."
     },
     "messages": {
-      "paid": "Payment recorded."
+      "paid": "Payment recorded.",
+      "paymentDeleted": "Payment deleted. The invoice's status has been updated."
     },
     "errors": {
       "invalid": "Check the highlighted fields.",
@@ -754,8 +755,13 @@
       "payment_already_paid": "That invoice is already settled.",
       "payment_exceeds_outstanding": "The amount is more than is still owed.",
       "payment_wrong_currency": "The payment must be in the invoice's currency.",
-      "payment_not_positive": "The amount must be greater than zero."
-    }
+      "payment_not_positive": "The amount must be greater than zero.",
+      "notFoundPayment": "That payment no longer exists."
+    },
+    "delete": "Delete",
+    "deleting": "Deleting…",
+    "deleteHint": "Recorded a payment wrongly? Delete it and record it again. The deletion is kept in the history and the invoice's status is recalculated on its own. The invoice itself does not change.",
+    "deleteConfirm": "Delete this payment? It stays in the history."
   },
   "creditNotes": {
     "eyebrow": "Sales",

@@ -8,7 +8,9 @@ import { findCustomer } from "@/lib/customers/data";
 import {
   ImmutableDocumentError,
   createAndIssueCreditNote,
+  deletePayment,
   findDocument,
+  findPayment,
   insertInvoice,
   insertPayment,
   invoiceBalance,
@@ -285,6 +287,71 @@ export async function recordPaymentAction(
   revalidatePath(`${INVOICES_PATH}/${id.value}`);
   revalidatePath("/admin/pagos");
   return formSuccess("paid");
+}
+
+/**
+ * Delete a recorded payment (PR-17) — admin only.
+ *
+ * A mistyped payment used to have no undo. This is the whole correction path:
+ * there is no *edit*, deliberately. Delete-and-re-record is one code path
+ * instead of two, and it leaves two honest entries in the activity log — the
+ * removal and the replacement — where an edit would leave one entry claiming
+ * the payment had always been what it now says.
+ *
+ * The issued invoice itself is untouched (guardrail 4). What changes is the
+ * record of what has been received against it, and the status that record
+ * implies, which is re-derived here exactly as it is after a payment or a
+ * credit note.
+ */
+export async function deletePaymentAction(
+  previous: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const session = await requireRole("payments.delete");
+
+  const paymentId = idField(field(formData, "paymentId"));
+  if (!paymentId.ok) return formError("invalid", undefined, { previous });
+
+  // Read it first, scoped: another tenant's payment simply is not found, and
+  // the document id has to come from the row rather than from the form, or a
+  // crafted submission could point the status refresh at someone else's
+  // invoice.
+  const payment = await findPayment(session.tenantId, paymentId.value);
+  if (!payment) return formError("notFoundPayment", undefined, { previous });
+
+  // Between the read and the delete another admin may have removed the same
+  // row from another tab. That is not an error worth a stack trace — the
+  // outcome they wanted has happened — but it must not go on to log a
+  // deletion that this request did not perform.
+  const removed = await deletePayment(session.tenantId, paymentId.value);
+  if (!removed) return formError("notFoundPayment", undefined, { previous });
+
+  const status = await refreshInvoiceStatus(
+    session.tenantId,
+    payment.documentId,
+    today(),
+  );
+
+  // Logged with the amount and method it carried, so the log says what was
+  // taken back and not merely that something was.
+  await logActivity({
+    tenantId: session.tenantId,
+    userId: session.userId,
+    entityType: "document",
+    entityId: payment.documentId,
+    action: "deleted",
+    detail: {
+      paymentId: payment.id,
+      amount: payment.amount,
+      method: payment.method,
+      status,
+    },
+  });
+
+  revalidatePath(INVOICES_PATH);
+  revalidatePath(`${INVOICES_PATH}/${payment.documentId}`);
+  revalidatePath("/admin/pagos");
+  return formSuccess("paymentDeleted");
 }
 
 /* -------------------------------------------------------------------------- */

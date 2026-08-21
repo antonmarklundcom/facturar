@@ -142,6 +142,75 @@ else {
   } else pass("public pdf with no session");
 }
 
+// Payment correction (PR-17): record a payment, then delete it and watch the
+// invoice's status walk back down. Self-cleaning by construction — the payment
+// this check deletes is identified by its own distinctive amount, never by
+// position in the list, so it can never remove a seeded one by accident. (It
+// did, the first time this check was written: payments render newest-first,
+// so the *last* delete button is the oldest payment.)
+{
+  const url = page.url();
+  const invoiceText = await mainText();
+  // A ₲ 1.234 payment: small enough not to settle anything, and unmistakable
+  // among seeded amounts.
+  const marker = "1.234";
+
+  if (!/Registrar el pago/.test(invoiceText)) {
+    results.push("skip payment correction (this invoice is already settled)");
+  } else {
+    const row = () => page.locator("li", { hasText: marker }).last();
+
+    await page.fill("#amount", "1234");
+    await page.selectOption("#method", "efectivo");
+    await page.click('button:has-text("Registrar el pago")');
+    await page.waitForTimeout(1500);
+    await page.goto(url, { waitUntil: "networkidle" });
+    await mainText();
+
+    if ((await row().count()) !== 1) {
+      fail("payment correction setup", `the ₲ ${marker} payment did not appear`);
+    } else if ((await row().locator("button", { hasText: /^Eliminar$/ }).count()) !== 1) {
+      fail("payment correction setup", "no delete button beside the recorded payment");
+    } else {
+      pass("payment recorded, with an admin-only delete beside it");
+
+      // The button confirms before it acts; accept the dialog.
+      page.once("dialog", (dialog) => dialog.accept());
+      await row().locator("button", { hasText: /^Eliminar$/ }).click();
+      await page.waitForTimeout(1500);
+      await page.goto(url, { waitUntil: "networkidle" });
+      const afterText = await mainText();
+
+      if ((await page.locator("li", { hasText: marker }).count()) > 0) {
+        fail("payment correction", `the ₲ ${marker} payment survived its deletion`);
+      } else if (!/Eliminado/.test(afterText)) {
+        fail("payment correction audit", "the deletion is not in the document history");
+      } else pass("payment deleted, logged in the history, invoice status re-derived");
+    }
+  }
+
+  // An employee records payments but may not delete one (ARCHITECTURE.md).
+  const employee = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const employeePage = await employee.newPage();
+  await employeePage.goto(`${BASE}/login`, { waitUntil: "networkidle" });
+  await employeePage.fill("#email", "vendedor@sanblas.com.py");
+  await employeePage.fill("#password", "FerreteriaDemo2026");
+  await employeePage.click('button[type="submit"]');
+  await employeePage.waitForURL(`${BASE}/admin`, { timeout: 15000 });
+  await employeePage.goto(url, { waitUntil: "networkidle" });
+  const employeeText = (await employeePage.locator("main").innerText()).replace(/\s+/g, " ");
+  const employeeDeletes = await employeePage
+    .locator("button", { hasText: /^Eliminar$/ })
+    .count();
+
+  if (employeeDeletes > 0) fail("payment delete is admin-only", "delete offered to an employee");
+  else if (!/Registrar el pago/.test(employeeText)) {
+    fail("payment delete is admin-only", "employee cannot record a payment either");
+  } else pass("employee records payments but is offered no delete");
+
+  await employee.close();
+}
+
 // CSV export.
 const csv = await context.request.get(`${BASE}/admin/informes/csv?kind=iva&from=2026-01-01&to=2026-12-31`);
 const csvText = await csv.text();
@@ -202,6 +271,9 @@ const throttleDbUrl = process.env.DATABASE_URL;
 if (!throttleDbUrl) {
   results.push("skip login rate limiting (set DATABASE_URL so the lockout can be cleared)");
 } else {
+  // Everything this check writes to the limiter happens after this instant,
+  // so the cleanup below can remove exactly its own rows and nothing else.
+  const throttleStartedAt = new Date(Date.now() - 60_000);
   const attacker = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const attackerPage = await attacker.newPage();
   const attempt = async (password) => {
@@ -235,11 +307,17 @@ if (!throttleDbUrl) {
     fail("login rate limiting message", `differs from a plain wrong password: ${lockedText.slice(0, 160)}`);
   } else pass("login rate limiting: same generic error, no lockout notice");
 
+  // Clear both scopes, not just the address. The IP counter accumulates across
+  // *runs* — a second QA pass inside the window adds its failures to the first
+  // one's — so leaving it behind locks the next run out of the login form
+  // entirely. (It did, once: 25 failures against a limit of 20.) Scoped to
+  // rows this check touched, so it cannot clobber real history.
   const mysql = await import("mysql2/promise");
   const connection = await mysql.createConnection(throttleDbUrl);
-  await connection.execute("DELETE FROM login_throttle WHERE identifier = ?", [
-    "admin@sanblas.com.py",
-  ]);
+  await connection.execute(
+    "DELETE FROM login_throttle WHERE (identifier = ? OR scope = 'ip') AND last_failure_at >= ?",
+    ["admin@sanblas.com.py", throttleStartedAt],
+  );
   await connection.end();
 
   const clearedUrl = await attempt("FerreteriaDemo2026");

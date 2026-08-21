@@ -3,10 +3,16 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { useTranslations } from "next-intl";
-import { Field, FormMessage, buttonClass, inputClass } from "@/components/ui/field";
+import {
+  Field,
+  FormMessage,
+  buttonClass,
+  ghostButtonClass,
+  inputClass,
+} from "@/components/ui/field";
 import { IDLE, type FormState } from "@/lib/forms";
 import { PAYMENT_METHOD_ORDER } from "@/domain/payments";
-import { recordPaymentAction } from "./actions";
+import { deletePaymentAction, recordPaymentAction } from "./actions";
 
 /**
  * Recording a payment. The amount is in the invoice's currency — the form
@@ -115,6 +121,65 @@ function Record() {
   return (
     <button type="submit" className={buttonClass} disabled={pending}>
       {pending ? t("saving") : t("record")}
+    </button>
+  );
+}
+
+/**
+ * Undo one recorded payment (PR-17) — admin only, and gated server-side by
+ * `requireRole("payments.delete")`; this button only decides whether to draw
+ * it (guardrail 3).
+ *
+ * There is no *edit* counterpart on purpose. Delete-and-re-record is one path
+ * instead of two, and it leaves the activity log saying what actually
+ * happened: this was taken back, that was entered. The issued invoice is not
+ * touched — only what has been received against it, and the status that
+ * implies, which the server re-derives.
+ */
+export function PaymentDeleteButton({ paymentId }: { paymentId: number }) {
+  const t = useTranslations("payments");
+  const [state, formAction] = useActionState<FormState, FormData>(
+    deletePaymentAction,
+    IDLE,
+  );
+
+  return (
+    <form action={formAction} className="contents">
+      <input type="hidden" name="paymentId" value={paymentId} />
+
+      {state.status === "error" ? (
+        <FormMessage tone="error">{t(`errors.${state.messageKey}`)}</FormMessage>
+      ) : null}
+
+      <Delete confirm={t("deleteConfirm")} label={t("delete")} busy={t("deleting")} />
+    </form>
+  );
+}
+
+function Delete({
+  confirm,
+  label,
+  busy,
+}: {
+  confirm: string;
+  label: string;
+  busy: string;
+}) {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      // A deletion that leaves a log entry is recoverable in the sense that
+      // matters — you can see what it was and enter it again — but it still
+      // changes what an invoice appears to have been paid, so it asks first.
+      onClick={(event) => {
+        if (!window.confirm(confirm)) event.preventDefault();
+      }}
+      disabled={pending}
+      className={`${ghostButtonClass} min-h-9 px-[var(--s-3)] text-[length:var(--t--1)]`}
+    >
+      {pending ? busy : label}
     </button>
   );
 }
