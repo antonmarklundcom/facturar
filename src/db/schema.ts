@@ -14,6 +14,7 @@ import {
   varchar,
   type AnyMySqlColumn,
 } from "drizzle-orm/mysql-core";
+import { throttleScopes } from "@/domain/throttle";
 
 /**
  * facturar — data model (see ARCHITECTURE.md "Data model").
@@ -25,7 +26,8 @@ import {
  *    There is no FLOAT or DECIMAL column anywhere in this schema, by design.
  * 2. Every table except `tenants` itself carries `tenant_id` with a foreign key,
  *    and every index that matters leads with `tenant_id` so a scoped query can
- *    actually use it.
+ *    actually use it. `login_throttle` is the one documented exception — it is
+ *    written before any session exists, so there is no tenant to scope it to.
  * 3. Issued documents are immutable — `issued_at` / `issued_by` / `pdf_snapshot`
  *    are write-once at issue time; corrections are new credit-note rows.
  * 4. `activity_log` is append-only: it has `created_at` and nothing else.
@@ -444,6 +446,48 @@ export const activityLog = mysqlTable(
   ],
 );
 
+
+/* -------------------------------------------------------------------------- */
+/* login_throttle — failed-login counters (PR-16)                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Failed-login counters, one row per (scope, identifier).
+ *
+ * **This is the one table with no `tenant_id`, and deliberately so.** It is
+ * written before anybody is authenticated: at the moment a login is throttled
+ * there is no session, no tenant, and — if the address has no account at all —
+ * no tenant it could ever have belonged to. Giving it a tenant column would
+ * mean either inventing one or looking the address up first, and looking it
+ * up first is exactly the account-existence oracle the limiter must not be.
+ * `tests/schema.test.ts` names it as the single documented exception.
+ *
+ * A row is an aggregate, not a log: one upsert per failed attempt rather than
+ * a row per attempt, and deleted outright when the address logs in. The
+ * append-only record of who signed in stays in `activity_log`.
+ */
+export const loginThrottle = mysqlTable(
+  "login_throttle",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    scope: mysqlEnum("scope", throttleScopes).notNull(),
+    /**
+     * The normalised email, or the client IP. Capped at 190 characters: no
+     * real address is longer, and grouping the absurd ones together only
+     * makes the limiter stricter.
+     */
+    identifier: varchar("identifier", { length: 190 }).notNull(),
+    failures: int("failures").notNull().default(0),
+    lastFailureAt: datetime("last_failure_at", { mode: "date" }).notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex("login_throttle_scope_identifier_uq").on(table.scope, table.identifier),
+    index("login_throttle_last_failure_idx").on(table.lastFailureAt),
+  ],
+);
+
 /* -------------------------------------------------------------------------- */
 /* inferred types                                                              */
 /* -------------------------------------------------------------------------- */
@@ -466,6 +510,7 @@ export type Payment = typeof payments.$inferSelect;
 export type NewPayment = typeof payments.$inferInsert;
 export type ActivityLogEntry = typeof activityLog.$inferSelect;
 export type NewActivityLogEntry = typeof activityLog.$inferInsert;
+export type LoginThrottleRow = typeof loginThrottle.$inferSelect;
 
 export type Currency = (typeof currencyValues)[number];
 export type TaxRate = (typeof taxRateValues)[number];

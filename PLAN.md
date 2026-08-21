@@ -163,12 +163,14 @@ Apply `web-design-system`; no pricing page in v1. Must not pull the authenticate
 | 13 | Dashboard + reports | **merged** |
 | 14 | Seed + polish | **merged** |
 | 15 | Landing page | **merged** |
+| 16 | Login rate limiting | **merged** |
 
 ## Phase A notes (recorded 2026-08-20)
 
 Carried into later PRs rather than fixed in place:
 
 - **Login rate limiting** is not implemented. Worth adding before the first real tenant is live.
+  *(Closed by PR-16.)*
 - **`server-only`** on `lib/auth/users.ts`, `lib/auth/session.ts`, `lib/activity.ts` and
   `domain/numbering.server.ts` means a plain `tsx` script cannot import them. PR-14's seed either
   talks to `db` directly or that marker is relaxed on the pure data-access modules.
@@ -445,6 +447,66 @@ the one that needs your Hostinger credentials. Before it runs, decide:
 `NEXT_PUBLIC_CONTACT_WHATSAPP`, `NEXT_PUBLIC_APP_URL`, `DOCUMENT_STORAGE_DIR` (persistent
 disk, outside the app directory, included in the backup cron), and — if email is wanted
 on day one — `RESEND_API_KEY` plus a verified sender domain.
+
+
+## Phase C — pre-launch hardening
+
+### PR-16 Login rate limiting
+Failed logins counted per email and per IP, with a lockout window a successful login clears.
+The limiter must not become an account-existence oracle: same message, same timing as today's
+generic credential error, whether or not the address has an account.
+**Depends:** PR-3 · **Accept:** unit tests for the window, the reset on success, and that a
+locked-out attempt with the correct password still fails.
+
+## PR-16 notes (recorded 2026-08-21)
+
+- **The counters live in a table (`login_throttle`), not in memory.** An in-memory map
+  needs no migration and is the wrong choice here for two specific reasons: it empties on
+  every deploy, so any push lifts every lockout, and it is per-process, so a slot running
+  more than one Node process divides an attacker's attempts between them and locks nobody
+  out. Both are exactly the conditions this app ships into. The cost is one upsert per
+  *failed* attempt — a success writes only a delete — which on an SMB tenant is a handful
+  of rows a week.
+- **It is the one table with no `tenant_id`,** and `tests/schema.test.ts` now carries a
+  named exception list rather than a bare `!== "tenants"`. The limiter runs before any
+  session exists; an address with no account has no tenant it could belong to, and looking
+  one up to decide whether to throttle would be precisely the oracle the feature is built
+  to avoid. `tests/data-access-scoped.test.ts` has the matching allowlist entry.
+- **A throttled attempt takes the same path, and the same time, as a wrong password.**
+  The limiter is read first but acted on last: the credential check runs in full, bcrypt
+  included, and the four rejection reasons (wrong password, unknown address, deactivated
+  account, locked out) collapse into one `loginRejected()` call in the domain so a later
+  edit cannot handle one of them separately by accident. There is no "too many attempts"
+  message, deliberately — it would tell an attacker the address is worth attacking.
+- **Limits: 5 failures per address, 20 per IP, both in a 15-minute sliding window.** The
+  address limit is the real defence. The IP limit is a backstop against spraying one
+  common password across many addresses, set far higher because a Paraguayan SMB office —
+  or a phone on mobile data — shares one address between everybody on it, and locking the
+  office out because a colleague fumbled is worse than the attack it prevents. Every
+  attempt while locked still counts, so hammering the form extends the lock.
+- **A successful login clears the address counter but not the IP one.** Otherwise anyone
+  holding a single valid account could reset the address-wide budget between bursts of
+  guesses at everybody else's.
+- **`x-forwarded-for` is only as trustworthy as the proxy in front of the app.** The
+  parser rejects anything that is not plausibly an address, so junk cannot become a
+  throttle key or a free budget. This is why the IP scope is a backstop and never the
+  primary defence.
+- **The database test found a real off-by-one.** The counter's reset is recomputed in SQL
+  (`if(last_failure_at <= now - window, 1, failures + 1)`) rather than from the value the
+  request just read, so two simultaneous attempts cannot both write "1". It was written
+  with `<` where `isStale()` uses `>=`, which left an attempt landing exactly on the
+  window boundary resuming the old count instead of restarting. Unit tests could not see
+  it; `tests/throttle.db.test.ts` did.
+- **`scripts/qa.mjs` is now 34 checks.** Three are new and drive the real form: five wrong
+  passwords lock the demo admin out, the sixth attempt fails **with the correct password**,
+  the message is compared word-for-word against a plain wrong password's, and the counter
+  is then cleared so the pass is re-runnable. That last step needs `DATABASE_URL`; without
+  one the check skips rather than leaving the demo account locked.
+- **Rows are pruned on successful login**, ten windows back, so a spray across thousands
+  of addresses cannot grow the table without bound.
+- **Not wired to any alerting.** A lockout is invisible unless someone reads the table.
+  When Sentry lands (v1.1, decision 20), a repeated lockout on one address is the first
+  thing worth an event.
 
 ## v1.1 backlog (decided, deliberately not in v1)
 

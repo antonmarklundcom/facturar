@@ -18,7 +18,14 @@ function sourceFiles(directory = SRC, prefix = ""): string[] {
  * Files that hold the database handle without scoping a query — there are
  * none today, and each new entry needs a written reason.
  */
-const UNSCOPED_ALLOWLIST: Record<string, string> = {};
+const UNSCOPED_ALLOWLIST: Record<string, string> = {
+  "lib/auth/throttle.ts":
+    "the login limiter runs before authentication: there is no session and so " +
+    "no tenant id to scope by, and resolving one from the submitted address " +
+    "before deciding whether to throttle would be exactly the account-existence " +
+    "oracle the limiter is built not to be. Its rows are keyed by email and IP " +
+    "and hold no tenant data.",
+};
 
 describe("guardrail 2 — every query is tenant-scoped", () => {
   it("uses tenantScoped/ownTenant/withTenant in every module that touches the db", () => {
